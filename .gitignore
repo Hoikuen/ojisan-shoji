@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+
+# 作業用のローカルメモ・設定（公開しない。手元には残す）
+CLAUDE.md
+.claude/
+docs/

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#1b1b26" />
+    <title>おじさん商事</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        position: fixed;
+        overflow: hidden;
+        background: #1b1b26;
+        overscroll-behavior: none;
+        touch-action: manipulation; /* ダブルタップ拡大を抑制 */
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      }
+      #app {
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh; /* モバイルのアドレスバー考慮 */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      canvas { image-rendering: auto; display: block; }
+
+      /* スマホを縦に持っているときは横向きを促す（ゲームは横長レイアウト）。 */
+      #rotate {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: #1b1b26;
+        color: #f4f4f8;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        text-align: center;
+        padding: 24px;
+        font-size: 18px;
+        line-height: 1.6;
+      }
+      #rotate .emoji { font-size: 56px; animation: spin 2.2s ease-in-out infinite; }
+      @keyframes spin {
+        0%, 40% { transform: rotate(0deg); }
+        60%, 100% { transform: rotate(90deg); }
+      }
+      @media (orientation: portrait) and (pointer: coarse) {
+        #rotate { display: flex; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="rotate">
+      <div class="emoji">📱</div>
+      <div>スマホを <b>横向き</b> にしてください<br />（おじさん商事は横長の画面です）</div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

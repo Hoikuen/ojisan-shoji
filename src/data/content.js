@@ -1,0 +1,35 @@
+// ゲーム内容＝データ（リスキンの肝）。エンジンはこれを読むだけ。
+// 服を増やす＝GARMENTS に1要素足すだけ。職種を変える＝JOB_TYPES をいじるだけ。
+
+export const SEASONS = ['春', '夏', '秋', '冬'];
+
+// 職種3つ。おじさんは plan/design/sales の3能力を持ち、dominant がその人の職種。
+export const JOB_TYPES = [
+  { id: 'plan',   key: 'plan',   label: '企画',   short: '企', color: 0x4f8ed6 },
+  { id: 'design', key: 'design', label: 'デザイン', short: 'デ', color: 0x5cb874 },
+  { id: 'sales',  key: 'sales',  label: '営業',   short: '営', color: 0xe0944a },
+];
+
+// 服（コレクション）の定義。season は「最も売れる季節」。
+// unlock は「累計売上がこの額に達すると開発できるようになる」（=会社の成長で品揃えが増える）。
+export const GARMENTS = [
+  { id: 'haramaki', name: '腹巻き',        season: '冬', basePrice: 60,  workNeeded: 80,  color: 0xcc5544, unlock: 0 },
+  { id: 'polo',     name: 'ポロシャツ',     season: '夏', basePrice: 80,  workNeeded: 110, color: 0x4488cc, unlock: 0 },
+  { id: 'chan',     name: 'ちゃんちゃんこ', season: '秋', basePrice: 110, workNeeded: 140, color: 0x9c6b3b, unlock: 4000 },
+  { id: 'suit',     name: '勝負スーツ',     season: '春', basePrice: 150, workNeeded: 190, color: 0x3a3a55, unlock: 12000 },
+];
+
+// おじさんの名前プール（姓＋名で生成）。
+export const LAST_NAMES  = ['田中', '佐藤', '鈴木', '高橋', '渡辺', '山本', '中村', '小林', '加藤', '吉田', '山田', '斎藤'];
+export const FIRST_NAMES = ['カズオ', 'タケシ', 'ヒロシ', 'マサル', 'ススム', 'ノボル', 'シゲル', 'ツトム', 'イサオ', 'ミノル', 'タダシ', 'キヨシ'];
+
+// 会社の格付け（累計売上で昇格）。会社が育つ実感＝目標になる。
+export const RANKS = [
+  { min: 0,      title: '露店のおじさん' },
+  { min: 4000,   title: '町の仕立て屋' },
+  { min: 12000,  title: 'おじさんブティック' },
+  { min: 30000,  title: 'アパレルメーカー' },
+  { min: 70000,  title: '人気ブランド' },
+  { min: 150000, title: 'おじさんコレクション' },
+  { min: 300000, title: '世界のOJISAN' },
+];
