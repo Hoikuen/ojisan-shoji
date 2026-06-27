@@ -2,7 +2,7 @@
 // Phaser を一切 import しない。数字だけで動くので node でシミュレーション検証できる。
 // 描画(GameScene)はこの state を読み、ここの関数を呼んで結果(events)をアニメ表示するだけ。
 
-import { SEASONS, GARMENTS, JOB_TYPES, LAST_NAMES, FIRST_NAMES, RANKS } from '../data/content.js';
+import { SEASONS, GARMENTS, JOB_TYPES, LAST_NAMES, FIRST_NAMES, RANKS, EVENTS, TECHS } from '../data/content.js';
 import { TUNING } from '../data/tuning.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -21,6 +21,56 @@ function pickTrend(season, rng, totalRevenue = Infinity) {
   return pool[Math.floor(rng() * pool.length)].id;
 }
 
+// ── 研究・技術 ─────────────────────────────────────────────────
+
+// state.techs に含まれる effect の合成倍率を返す（研究なし=1）。
+export function getTechMult(state, effectId) {
+  if (!state.techs || !state.techs.length) return 1;
+  let mult = 1;
+  for (const techId of state.techs) {
+    const tech = TECHS.find((t) => t.id === techId);
+    if (tech && tech.effect === effectId) mult *= tech.value;
+  }
+  return mult;
+}
+
+export function canBuyTech(state, techId) {
+  const tech = TECHS.find((t) => t.id === techId);
+  if (!tech) return false;
+  if ((state.techs || []).includes(techId)) return false;
+  return state.money >= tech.cost;
+}
+
+export function buyTech(state, techId) {
+  if (!canBuyTech(state, techId)) return false;
+  const tech = TECHS.find((t) => t.id === techId);
+  state.money -= tech.cost;
+  if (!state.techs) state.techs = [];
+  state.techs.push(techId);
+  return true;
+}
+
+// ── 店舗 ────────────────────────────────────────────────────────
+
+export function storeCost(state) {
+  return Math.round(T.storeBaseCost * Math.pow(T.storeUpgradeMult, (state.stores || 0)));
+}
+
+export function canOpenStore(state) {
+  return (state.stores || 0) < T.storeMaxCount && state.money >= storeCost(state);
+}
+
+export function openStore(state) {
+  if (!canOpenStore(state)) return false;
+  state.money -= storeCost(state);
+  state.stores = (state.stores || 0) + 1;
+  return true;
+}
+
+export function storeWeeklyIncome(state) {
+  return (state.stores || 0) * T.storeIncomeBase;
+}
+
 // ── 生成・問い合わせ ──────────────────────────────────────────
 
 export function createState(rng = Math.random) {
@@ -34,16 +84,21 @@ export function createState(rng = Math.random) {
     maxEmployees: T.startMaxEmployees,
     maxProjects: T.startMaxProjects,
     expandCount: 0,
-    totalRevenue: 0,            // 累計売上（格付け・服の解放の基準）
-    trendGarment: pickTrend(SEASONS[0], rng, 0), // 今の流行
+    totalRevenue: 0,
+    trendGarment: pickTrend(SEASONS[0], rng, 0),
     gameOver: false,
+    // 新規フィールド
+    techs: [],                // 研究済みのtech id 一覧
+    stores: 0,                // 店舗数
+    pendingEvent: null,       // 次のコレクション完成に適用されるイベント
+    lastEventWeek: 0,         // 最後にイベントが発生した週
     _eid: 1,
     _pid: 1,
   };
   // 創業者おじさん（社長）。最初から1人いるのでオフィスが寂しくない。
   state.employees.push({
     id: state._eid++, name: '社長', plan: 4, design: 5, sales: 4,
-    level: 1, exp: 0, projectId: null, founder: true,
+    level: 1, exp: 0, projectId: null, founder: true, specialty: null,
   });
   return state;
 }
@@ -107,7 +162,10 @@ export function generateCandidates(state, rng = Math.random) {
     const design = randStat(rng);
     const sales = randStat(rng);
     const fee = T.hireFeeBase + (plan + design + sales) * T.hireFeePerStat;
-    list.push({ cid: ++_nameSeed, name: makeName(rng), plan, design, sales, fee });
+    const specialty = rng() < T.specialtyChance
+      ? GARMENTS[Math.floor(rng() * GARMENTS.length)].id
+      : null;
+    list.push({ cid: ++_nameSeed, name: makeName(rng), plan, design, sales, fee, specialty });
   }
   return list;
 }
@@ -128,6 +186,7 @@ export function hire(state, cand) {
     level: 1,
     exp: 0,
     projectId: null,
+    specialty: cand.specialty ?? null,
   };
   state.employees.push(e);
   return e;
@@ -143,14 +202,14 @@ export function startProject(state, garmentId) {
   if (!canStartProject(state)) return null;
   const def = garmentDef(garmentId);
   if (!def) return null;
-  if (state.totalRevenue < def.unlock) return null; // 未解放の服は作れない
+  if (state.totalRevenue < def.unlock) return null;
   const p = {
     id: state._pid++,
     defId: def.id,
     def,
     progress: 0,
-    qualityAcc: 0, // Σ(企画+デザイン) 貢献
-    salesAcc: 0,   // Σ営業 貢献
+    qualityAcc: 0,
+    salesAcc: 0,
     workerWeeks: 0,
   };
   state.projects.push(p);
@@ -168,7 +227,7 @@ export function unassign(state, empId) {
   if (e) e.projectId = null;
 }
 
-// 解雇（社長は解雇できない）。給料を抑えたいときに使う。
+// 解雇（社長は解雇できない）。
 export function fireEmployee(state, empId) {
   const e = state.employees.find((x) => x.id === empId);
   if (!e || e.founder) return false;
@@ -178,8 +237,8 @@ export function fireEmployee(state, empId) {
 
 // ── 事業拡張 ──────────────────────────────────────────────────
 
-export const EMPLOYEE_CAP = 8;  // 社員パネルに収まる上限
-export const PROJECT_CAP = 3;   // 開発カードに収まる上限
+export const EMPLOYEE_CAP = 8;
+export const PROJECT_CAP = 3;
 
 export function expandMaxed(state) {
   return state.maxEmployees >= EMPLOYEE_CAP && state.maxProjects >= PROJECT_CAP;
@@ -199,40 +258,68 @@ export function expand(state) {
 }
 
 // ── 完成評価（純粋関数）───────────────────────────────────────
+// opts: { revenueMultiplier, scoreBonus, bigHitBonus } — イベント・専門の効果上書き用
 
-export function evaluateProject(state, p, rng = Math.random) {
+export function evaluateProject(state, p, rng = Math.random, opts = {}) {
+  const { revenueMultiplier = 1, scoreBonus = 0, bigHitBonus = 0 } = opts;
   const def = p.def;
-  // 品質：従事した社員の平均(企画+デザイン)貢献に比例（高能力ほど高評価）。
+
+  // 品質スコア（研究「縫製技術」が乗算）
+  const qualityMult = getTechMult(state, 'qualityMult');
   const avgQ = p.workerWeeks > 0 ? p.qualityAcc / p.workerWeeks : 0;
-  let score = avgQ * T.qualityScale;
+  let score = avgQ * T.qualityScale * qualityMult;
+
   // シーズン適合
   const seasonHit = def.season === state.season;
   score += seasonHit ? T.seasonMatchBonus : -T.seasonMissPenalty;
-  // 流行（トレンド）に乗っているか
+
+  // 流行（トレンド）
   const onTrend = def.id === state.trendGarment;
   if (onTrend) score += T.trendScoreBonus;
+
+  // 社員の「得意」ボーナス（最大2人まで加点）
+  const specialists = state.employees.filter(
+    (e) => e.projectId === p.id && e.specialty === def.id,
+  );
+  const specialistCount = specialists.length;
+  score += Math.min(specialistCount, 2) * T.specialtyBonus;
+
+  // イベント由来の加減点
+  score += scoreBonus;
+
   // 運
   score += (rng() * 2 - 1) * T.luckRange;
   score = clamp(score, 5, 100);
 
   const stars = clamp(Math.round(score / 20), 1, 5);
+
+  // 販売数（研究「販路拡大」が乗算）
+  const unitMult = getTechMult(state, 'unitMult');
   const avgSales = p.workerWeeks > 0 ? p.salesAcc / p.workerWeeks : 0;
-  let units = Math.max(1, Math.round(T.unitBase * (score / 50) * (1 + avgSales * T.salesBoost)));
+  let units = Math.max(1, Math.round(T.unitBase * (score / 50) * (1 + avgSales * T.salesBoost) * unitMult));
   if (onTrend) units = Math.round(units * T.trendUnitMult);
 
-  // 大ヒット（クリティカル）：高評価ほど化けやすい
-  const bigHit = rng() < (T.bigHitChance + score * T.bigHitChancePerScore);
-  let revenue = Math.round(units * def.basePrice * (T.revenueFloor + score / 100));
+  // 大ヒット（イベントで確率UP可）
+  const bigHit = rng() < (T.bigHitChance + score * T.bigHitChancePerScore + bigHitBonus);
+
+  // 売上（イベントの倍率・削減を適用）
+  let revenue = Math.round(units * def.basePrice * (T.revenueFloor + score / 100) * revenueMultiplier);
   if (bigHit) revenue = Math.round(revenue * T.bigHitMult);
 
-  return { score: Math.round(score), stars, units, revenue, seasonHit, onTrend, bigHit };
+  return { score: Math.round(score), stars, units, revenue, seasonHit, onTrend, bigHit, specialistCount };
 }
 
 // ── 週送り（ゲームの心臓）─────────────────────────────────────
-// 返り値 events：描画側が演出に使う（給料/レベルアップ/完成）。
 
 export function advanceWeek(state, rng = Math.random) {
   const events = [];
+
+  // 0) 店舗収入（毎週・給料より先に入る）
+  const shopIncome = storeWeeklyIncome(state);
+  if (shopIncome > 0) {
+    state.money += shopIncome;
+    events.push({ type: 'storeIncome', amount: shopIncome });
+  }
 
   // 1) 給料を払う
   const wage = totalSalary(state);
@@ -240,6 +327,7 @@ export function advanceWeek(state, rng = Math.random) {
   events.push({ type: 'salary', amount: wage });
 
   // 2) 開発を進める＋経験値
+  const expMult = getTechMult(state, 'expMult');
   for (const p of state.projects) {
     for (const e of state.employees) {
       if (e.projectId !== p.id) continue;
@@ -247,7 +335,7 @@ export function advanceWeek(state, rng = Math.random) {
       p.qualityAcc += e.design + e.plan;
       p.salesAcc += e.sales;
       p.workerWeeks += 1;
-      e.exp += T.expPerWorkWeek;
+      e.exp += Math.round(T.expPerWorkWeek * expMult);
     }
   }
 
@@ -266,9 +354,20 @@ export function advanceWeek(state, rng = Math.random) {
   const rankBefore = rankOf(state.totalRevenue).index;
   const revenueBefore = state.totalRevenue;
   const remaining = [];
+  let pendingConsumed = false;
   for (const p of state.projects) {
     if (p.progress >= p.def.workNeeded) {
-      const r = evaluateProject(state, p, rng);
+      // pendingEvent は最初に完成したコレクションにだけ適用
+      let evalOpts = {};
+      if (state.pendingEvent && !pendingConsumed) {
+        const ev = state.pendingEvent;
+        if (ev.effect === 'salesBoost') evalOpts.revenueMultiplier = 1 + ev.value;
+        if (ev.effect === 'salesCut')   evalOpts.revenueMultiplier = 1 - ev.value;
+        if (ev.effect === 'scorePenalty') evalOpts.scoreBonus = -ev.value;
+        if (ev.effect === 'bigHitBoost')  evalOpts.bigHitBonus  = ev.value;
+        pendingConsumed = true;
+      }
+      const r = evaluateProject(state, p, rng, evalOpts);
       state.money += r.revenue;
       state.totalRevenue += r.revenue;
       for (const e of state.employees) if (e.projectId === p.id) e.projectId = null;
@@ -277,6 +376,7 @@ export function advanceWeek(state, rng = Math.random) {
       remaining.push(p);
     }
   }
+  if (pendingConsumed) state.pendingEvent = null;
   state.projects = remaining;
 
   // 4.5) 昇格判定
@@ -292,13 +392,27 @@ export function advanceWeek(state, rng = Math.random) {
     }
   }
 
-  // 5) 週・季節を進める（4週で次の季節）。季節が変わったら流行も入れ替わる。
+  // 5) 週・季節を進める（4週で次の季節）。
   const prevSeason = state.season;
   state.week += 1;
   state.season = SEASONS[Math.floor((state.week - 1) / 4) % SEASONS.length];
   if (state.season !== prevSeason) {
     state.trendGarment = pickTrend(state.season, rng, state.totalRevenue);
     events.push({ type: 'trend', garment: state.trendGarment, season: state.season });
+  }
+
+  // 5.5) ランダムイベント（クールダウン付き）
+  const weeksSinceEvent = state.week - (state.lastEventWeek || 0);
+  if (!state.pendingEvent && weeksSinceEvent >= T.eventCooldown && rng() < T.eventChance) {
+    const ev = EVENTS[Math.floor(rng() * EVENTS.length)];
+    state.lastEventWeek = state.week;
+    if (ev.effect === 'bonusMoney') {
+      state.money += ev.value;
+      events.push({ type: 'event', event: ev, immediate: true });
+    } else {
+      state.pendingEvent = { ...ev };
+      events.push({ type: 'event', event: ev, immediate: false });
+    }
   }
 
   // 6) 倒産判定

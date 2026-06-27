@@ -55,4 +55,18 @@ export const TUNING = {
 
   // ── 倒産 ──
   bankruptThreshold: -3000, // この資金を下回ると倒産（ゲームオーバー）
+
+  // ── ランダムイベント ──
+  eventChance: 0.15,       // 週ごとの発生確率
+  eventCooldown: 5,        // 前回から何週置くか（連続発生防止）
+
+  // ── 社員の専門 ──
+  specialtyChance: 0.35,   // 候補者が「得意な服」を持つ確率
+  specialtyBonus: 16,      // 得意コレクションを担当したときのスコア加点（最大2人分）
+
+  // ── 店舗 ──
+  storeBaseCost: 2000,     // 1軒目の開設費用
+  storeUpgradeMult: 1.6,   // N軒目 = storeBaseCost × mult^(N-1)
+  storeMaxCount: 3,        // 最大店舗数
+  storeIncomeBase: 150,    // 1軒あたりの毎週収入
 };

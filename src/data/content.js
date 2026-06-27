@@ -3,6 +3,22 @@
 
 export const SEASONS = ['春', '夏', '秋', '冬'];
 
+// ランダムイベント（数週に1回発生）。effect は core.js が解釈する。
+export const EVENTS = [
+  { id: 'magazine',  text: '📰 雑誌に掲載された！',  effect: 'salesBoost',   value: 0.35,  desc: '次のコレクション売上 +35%' },
+  { id: 'rival',     text: '😤 競合が先手を打った…', effect: 'scorePenalty', value: 15,    desc: '次のコレクション評価 −15点' },
+  { id: 'celebrity', text: '🌟 有名人が着用！',       effect: 'bigHitBoost',  value: 0.25,  desc: '次のコレクション大ヒット確率 +25%' },
+  { id: 'sale',      text: '🛒 突発的な特需！',       effect: 'bonusMoney',   value: 600,   desc: 'いますぐ +¥600' },
+  { id: 'material',  text: '📦 原材料費が高騰…',      effect: 'salesCut',     value: 0.25,  desc: '次のコレクション売上 −25%' },
+];
+
+// 研究・技術開発（一度購入するとパッシブ効果が永続）。
+export const TECHS = [
+  { id: 'sewing2',  name: '縫製技術 Lv2', desc: 'コレクションの品質スコア +20%', cost: 2000, effect: 'qualityMult', value: 1.20 },
+  { id: 'routes',   name: '販路拡大',     desc: '販売数 +30%',                  cost: 3000, effect: 'unitMult',    value: 1.30 },
+  { id: 'training', name: '人材育成制度', desc: '経験値獲得量 +50%',             cost: 2500, effect: 'expMult',     value: 1.50 },
+];
+
 // 職種3つ。おじさんは plan/design/sales の3能力を持ち、dominant がその人の職種。
 export const JOB_TYPES = [
   { id: 'plan',   key: 'plan',   label: '企画',   short: '企', color: 0x4f8ed6 },
