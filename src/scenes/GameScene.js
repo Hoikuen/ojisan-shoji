@@ -24,6 +24,18 @@ const ROOM   = { x: 16,  y: CONTENT_Y + 48, w: 644, h: 440 };
 const EMP    = { x: 680, y: CONTENT_Y,       w: 280, h: 268 };
 const PROJ   = { x: 680, y: CONTENT_Y + 272, w: 280, h: 240 };
 
+// 社員の席座標（最大8席、4列×2行）。背景画像の机位置と1:1対応。
+const SEATS = [
+  { x: ROOM.x +  80, y: ROOM.y + 180 },
+  { x: ROOM.x + 240, y: ROOM.y + 180 },
+  { x: ROOM.x + 400, y: ROOM.y + 180 },
+  { x: ROOM.x + 560, y: ROOM.y + 180 },
+  { x: ROOM.x +  80, y: ROOM.y + 320 },
+  { x: ROOM.x + 240, y: ROOM.y + 320 },
+  { x: ROOM.x + 400, y: ROOM.y + 320 },
+  { x: ROOM.x + 560, y: ROOM.y + 320 },
+];
+
 export class GameScene extends Phaser.Scene {
   constructor() {
     super('Game');
@@ -785,51 +797,30 @@ export class GameScene extends Phaser.Scene {
   addWalker(e) {
     const job = dominantJob(e);
     const variant = job.id;
-    const sx = Phaser.Math.Between(ROOM.x, ROOM.x + ROOM.w);
-    const sy = Phaser.Math.Between(ROOM.y, ROOM.y + ROOM.h);
+    const idx = this.state.employees.findIndex(emp => emp.id === e.id);
+    const seat = SEATS[idx] ?? { x: ROOM.x + ROOM.w / 2, y: ROOM.y + ROOM.h / 2 };
 
     let sprite;
     const idleKey = `ojisan_${variant}_idle_1`;
     if (this.textures.exists(idleKey)) {
       sprite = this.add.image(0, 0, idleKey).setOrigin(0.5, 1).setDisplaySize(64, 96);
-      const walkKeys = [1, 2, 3, 4].map(i => `ojisan_${variant}_walk_${i}`);
-      let wf = 0;
-      this.time.addEvent({
-        delay: 200, loop: true,
-        callback: () => {
-          if (!sprite.active) return;
-          sprite.setTexture(walkKeys[wf % 4]);
-          wf++;
-        },
-      });
     } else {
       const body = this.add.rectangle(0, 0, 24, 32, job.color).setStrokeStyle(2, 0x20223a);
       const head = this.add.circle(0, -20, 10, 0xf0c8a0).setStrokeStyle(2, 0x20223a);
       sprite = this.add.container(0, 0, [body, head]);
-      this.tweens.add({ targets: [body, head], y: '-=4', duration: 320, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     }
+
+    // 座席での上下bob（仕事してる感）
+    this.tweens.add({
+      targets: sprite, y: '-=4', duration: 900,
+      yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+    });
 
     const tag = this.add.text(0, 6, e.name, { fontFamily: FONT, fontSize: '11px', color: COLORS.text })
       .setOrigin(0.5, 0);
-    const cont = this.add.container(sx, sy, [sprite, tag]).setDepth(10);
+    const cont = this.add.container(seat.x, seat.y, [sprite, tag]).setDepth(10);
     cont.empId = e.id;
     this.walkerLayer.add(cont);
     this.walkers.set(e.id, cont);
-    this.wanderNext(cont);
-  }
-
-  wanderNext(cont) {
-    if (!cont || !cont.active) return;
-    const tx = Phaser.Math.Between(ROOM.x, ROOM.x + ROOM.w);
-    const ty = Phaser.Math.Between(ROOM.y, ROOM.y + ROOM.h);
-    const dist = Phaser.Math.Distance.Between(cont.x, cont.y, tx, ty);
-    this.tweens.add({
-      targets: cont, x: tx, y: ty,
-      duration: dist * 16 + 400,
-      ease: 'Sine.easeInOut',
-      onComplete: () => {
-        this.time.delayedCall(Phaser.Math.Between(300, 1200), () => this.wanderNext(cont));
-      },
-    });
   }
 }
