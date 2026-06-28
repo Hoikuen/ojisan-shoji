@@ -178,12 +178,25 @@ export function canHire(state, cand) {
   return state.employees.length < state.maxEmployees && state.money >= cand.fee;
 }
 
+// charIdx ごとの固定名（addWalker の e.id % 6 と同じ算出式）
+const CHAR_FIXED_NAMES = [
+  null,        // 0: おじさん主人公（社長は別途固定）
+  '田中さん',  // 1: OL田中
+  '鈴木くん',  // 2: 後輩鈴木
+  '佐藤くん',  // 3: 後輩コーヒー佐藤
+  'お母さん',  // 4: おかあさん
+  'ゾンビ山田', // 5: ゾンビリーマン
+];
+
 export function hire(state, cand) {
   if (!canHire(state, cand)) return null;
   state.money -= cand.fee;
+  const newId = state._eid++;
+  const charIdx = (newId - 1) % 6;
+  const fixedName = CHAR_FIXED_NAMES[charIdx];
   const e = {
-    id: state._eid++,
-    name: cand.name,
+    id: newId,
+    name: fixedName ?? cand.name,
     plan: cand.plan,
     design: cand.design,
     sales: cand.sales,
