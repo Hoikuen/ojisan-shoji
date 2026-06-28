@@ -1,11 +1,25 @@
 import Phaser from 'phaser';
 
-// 絵はまだ無い（図形プレースホルダー段階）。ここでは何もロードせず GameScene へ。
-// 将来アセットを足すときは assets manifest を総なめして this.load.image する（ロード漏れ防止）。
 export class BootScene extends Phaser.Scene {
   constructor() {
     super('Boot');
   }
+
+  preload() {
+    const variants = ['sales', 'plan', 'design'];
+    const frames = ['idle_1', 'idle_2', 'walk_1', 'walk_2', 'walk_3', 'walk_4', 'think', 'work'];
+    for (const v of variants) {
+      for (const f of frames) {
+        this.load.image(`ojisan_${v}_${f}`, `assets/sprites/ojisan_${v}/${f}.png`);
+      }
+    }
+    this.load.image('bg_office', 'assets/bg/office.png');
+    const icons = ['haramaki', 'polo', 'chan', 'suit'];
+    for (const id of icons) {
+      this.load.image(`icon_${id}`, `assets/icons/${id}.png`);
+    }
+  }
+
   create() {
     this.scene.start('Game');
   }

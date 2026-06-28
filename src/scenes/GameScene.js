@@ -769,19 +769,38 @@ export class GameScene extends Phaser.Scene {
   // ── 歩くおじさん ─────────────────────────────────────────
   addWalker(e) {
     const job = dominantJob(e);
+    const variant = job.id; // 'plan' | 'design' | 'sales'
     const sx = Phaser.Math.Between(ROOM.x, ROOM.x + ROOM.w);
     const sy = Phaser.Math.Between(ROOM.y, ROOM.y + ROOM.h);
-    const body = this.add.rectangle(0, 0, 18, 22, job.color).setStrokeStyle(2, 0x20223a);
-    const head = this.add.circle(0, -15, 7, 0xf0c8a0).setStrokeStyle(2, 0x20223a);
-    const tag = this.add.text(0, 16, e.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.text })
+
+    let sprite;
+    const idleKey = `ojisan_${variant}_idle_1`;
+    if (this.textures.exists(idleKey)) {
+      sprite = this.add.image(0, 0, idleKey).setOrigin(0.5, 1);
+      const walkKeys = [1, 2, 3, 4].map(i => `ojisan_${variant}_walk_${i}`);
+      let wf = 0;
+      this.time.addEvent({
+        delay: 200, loop: true,
+        callback: () => {
+          if (!sprite.active) return;
+          sprite.setTexture(walkKeys[wf % 4]);
+          wf++;
+        },
+      });
+    } else {
+      // フォールバック（スプライトなし）
+      const body = this.add.rectangle(0, 0, 18, 22, job.color).setStrokeStyle(2, 0x20223a);
+      const head = this.add.circle(0, -15, 7, 0xf0c8a0).setStrokeStyle(2, 0x20223a);
+      sprite = this.add.container(0, 0, [body, head]);
+      this.tweens.add({ targets: [body, head], y: '-=3', duration: 320, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
+
+    const tag = this.add.text(0, 4, e.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.text })
       .setOrigin(0.5, 0);
-    const cont = this.add.container(sx, sy, [body, head, tag]).setDepth(10);
+    const cont = this.add.container(sx, sy, [sprite, tag]).setDepth(10);
     cont.empId = e.id;
     this.walkerLayer.add(cont);
     this.walkers.set(e.id, cont);
-    this.tweens.add({
-      targets: [body, head], y: '-=3', duration: 320, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
-    });
     this.wanderNext(cont);
   }
 
