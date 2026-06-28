@@ -49,9 +49,10 @@ export class GameScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor(COLORS.bg);
 
-    this.bgLayer     = this.add.container(0, 0);
-    this.walkerLayer = this.add.container(0, 0);
-    this.uiLayer     = this.add.container(0, 0);
+    this.bgLayer     = this.add.container(0, 0); // 背景奥（机の後ろ・床・壁）
+    this.walkerLayer = this.add.container(0, 0); // キャラスプライト
+    this.frontLayer  = this.add.container(0, 0); // 背景手前（机の前面・椅子前脚）
+    this.uiLayer     = this.add.container(0, 0); // UI
 
     this.buildStaticFrame();
     this.buildHud();
@@ -92,14 +93,21 @@ export class GameScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: '15px', color: COLORS.sub,
     }));
 
-    // オフィス背景画像（机・床・窓が一体化）
-    if (this.textures.exists('bg_office')) {
-      const bg = this.add.image(ROOM.x, ROOM.y, 'bg_office').setOrigin(0, 0);
+    // 背景【奥レイヤー】: 床・壁・窓・机の天面・モニター（キャラの後ろ）
+    const backKey = this.textures.exists('bg_office_back') ? 'bg_office_back' : 'bg_office';
+    if (this.textures.exists(backKey)) {
+      const bg = this.add.image(ROOM.x, ROOM.y, backKey).setOrigin(0, 0);
       bg.setDisplaySize(ROOM.w, ROOM.h);
       this.bgLayer.add(bg);
     } else {
-      const floor = this.add.rectangle(ROOM.x, ROOM.y, ROOM.w, ROOM.h, COLORS.officeFloor).setOrigin(0, 0);
-      this.bgLayer.add(floor);
+      this.bgLayer.add(this.add.rectangle(ROOM.x, ROOM.y, ROOM.w, ROOM.h, COLORS.officeFloor).setOrigin(0, 0));
+    }
+
+    // 背景【手前レイヤー】: 机の前面・椅子前脚（透過PNG、キャラの前）
+    if (this.textures.exists('bg_office_front')) {
+      const front = this.add.image(ROOM.x, ROOM.y, 'bg_office_front').setOrigin(0, 0);
+      front.setDisplaySize(ROOM.w, ROOM.h);
+      this.frontLayer.add(front);
     }
 
     // 右パネル（社員・開発）
