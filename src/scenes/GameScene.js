@@ -20,22 +20,16 @@ const HUD_H     = 44;
 const ACT_H     = 44;
 const CONTENT_Y = HUD_H + ACT_H; // 88
 const OFFICE = { x: 0,   y: CONTENT_Y, w: 676, h: 512 };
-const ROOM   = { x: 16,  y: CONTENT_Y + 48, w: 644, h: 440 };
 const EMP    = { x: 680, y: CONTENT_Y,       w: 280, h: 268 };
 const PROJ   = { x: 680, y: CONTENT_Y + 272, w: 280, h: 240 };
 
-// 社員の席座標（最大8席、4列×2行）。背景画像の机・椅子位置と1:1対応。
-// スプライトは 96×144px（origin 0.5,1）なので行間は 170px 以上必要。
-const SEATS = [
-  { x: ROOM.x +  80, y: ROOM.y + 165 },
-  { x: ROOM.x + 240, y: ROOM.y + 165 },
-  { x: ROOM.x + 400, y: ROOM.y + 165 },
-  { x: ROOM.x + 560, y: ROOM.y + 165 },
-  { x: ROOM.x +  80, y: ROOM.y + 340 },
-  { x: ROOM.x + 240, y: ROOM.y + 340 },
-  { x: ROOM.x + 400, y: ROOM.y + 340 },
-  { x: ROOM.x + 560, y: ROOM.y + 340 },
-];
+// キャラが歩き回れるオフィス床エリア（窓・壁より下の床部分のみ）
+const WALK_AREA = {
+  x: OFFICE.x + 24,
+  y: OFFICE.y + 160,
+  w: OFFICE.w - 48,
+  h: OFFICE.h - 180,
+};
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -44,15 +38,21 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     this.state = loadGame() || createState();
+    // セーブデータ移行: スタッツが壊れた社員を除去
+    this.state.employees = this.state.employees.filter(
+      (e) => typeof e.plan === 'number' && typeof e.design === 'number' && typeof e.sales === 'number',
+    );
+    if (!this.state.rival) {
+      this.state.rival = { name: 'グローバル商事', revenue: 0 };
+    }
     this.walkers = new Map();
     this.modal = null;
 
     this.cameras.main.setBackgroundColor(COLORS.bg);
 
-    this.bgLayer     = this.add.container(0, 0); // 背景奥（机の後ろ・床・壁）
-    this.walkerLayer = this.add.container(0, 0); // キャラスプライト
-    this.frontLayer  = this.add.container(0, 0); // 背景手前（机の前面・椅子前脚）
-    this.uiLayer     = this.add.container(0, 0); // UI
+    this.bgLayer     = this.add.container(0, 0).setDepth(0);  // 背景
+    this.walkerLayer = this.add.container(0, 0).setDepth(10); // キャラスプライト
+    this.uiLayer     = this.add.container(0, 0).setDepth(30); // UI
 
     this.buildStaticFrame();
     this.buildHud();
@@ -85,30 +85,20 @@ export class GameScene extends Phaser.Scene {
     // アクションバー背景
     this.bgLayer.add(makePanel(this, 0, HUD_H, GAME_W, ACT_H, 0x22243a));
 
-    // オフィス
+    // オフィス背景（1枚）
     this.bgLayer.add(makePanel(this, OFFICE.x, OFFICE.y, OFFICE.w, OFFICE.h, COLORS.office));
-    const floor = this.add.rectangle(ROOM.x, ROOM.y, ROOM.w, ROOM.h, COLORS.officeFloor).setOrigin(0, 0);
-    this.bgLayer.add(floor);
+    const bgKey = this.textures.exists('bg_office_back') ? 'bg_office_back'
+      : this.textures.exists('bg_office') ? 'bg_office' : null;
+    if (bgKey) {
+      const bg = this.add.image(OFFICE.x, OFFICE.y, bgKey).setOrigin(0, 0);
+      bg.setDisplaySize(OFFICE.w, OFFICE.h);
+      this.bgLayer.add(bg);
+    } else {
+      this.bgLayer.add(this.add.rectangle(OFFICE.x, OFFICE.y, OFFICE.w, OFFICE.h, COLORS.officeFloor).setOrigin(0, 0));
+    }
     this.bgLayer.add(this.add.text(OFFICE.x + 8, OFFICE.y + 8, '🏢 オフィス', {
       fontFamily: FONT, fontSize: '15px', color: COLORS.sub,
     }));
-
-    // 背景【奥レイヤー】: 床・壁・窓・机の天面・モニター（キャラの後ろ）
-    const backKey = this.textures.exists('bg_office_back') ? 'bg_office_back' : 'bg_office';
-    if (this.textures.exists(backKey)) {
-      const bg = this.add.image(ROOM.x, ROOM.y, backKey).setOrigin(0, 0);
-      bg.setDisplaySize(ROOM.w, ROOM.h);
-      this.bgLayer.add(bg);
-    } else {
-      this.bgLayer.add(this.add.rectangle(ROOM.x, ROOM.y, ROOM.w, ROOM.h, COLORS.officeFloor).setOrigin(0, 0));
-    }
-
-    // 背景【手前レイヤー】: 机の前面・椅子前脚（透過PNG、キャラの前）
-    if (this.textures.exists('bg_office_front')) {
-      const front = this.add.image(ROOM.x, ROOM.y, 'bg_office_front').setOrigin(0, 0);
-      front.setDisplaySize(ROOM.w, ROOM.h);
-      this.frontLayer.add(front);
-    }
 
     // 右パネル（社員・開発）
     this.bgLayer.add(makePanel(this, EMP.x, EMP.y, EMP.w, EMP.h, COLORS.panel));
@@ -129,6 +119,7 @@ export class GameScene extends Phaser.Scene {
     this.hudWeek   = mk(460, '14px', COLORS.text);
     this.hudSeason = mk(534, '14px', COLORS.text);
     this.hudSalary = mk(614, '12px', COLORS.sub);
+    this.hudRival  = mk(720, '11px', COLORS.sub);
 
     const muteBtn = makeButton(this, GAME_W - 134, 8, 50, 28, Sfx.isMuted() ? '🔇' : '🔊', () => {
       const m = Sfx.toggleMute();
@@ -168,6 +159,14 @@ export class GameScene extends Phaser.Scene {
       this.eventText.setText(`📣 ${s.pendingEvent.text}  →  ${s.pendingEvent.desc}`);
     } else {
       this.eventText.setText('');
+    }
+
+    if (s.rival) {
+      const diff = s.totalRevenue - s.rival.revenue;
+      const ahead = diff >= 0;
+      const absDiff = Math.abs(diff).toLocaleString();
+      this.hudRival.setText(`vs ${s.rival.name}\n¥${s.rival.revenue.toLocaleString()}  ${ahead ? '▲' : '▼'}¥${absDiff}`);
+      this.hudRival.setColor(ahead ? COLORS.good : COLORS.bad);
     }
 
     if (s.totalRevenue === 0) {
@@ -743,14 +742,30 @@ export class GameScene extends Phaser.Scene {
     const comps = events.filter((e) => e.type === 'complete');
     comps.forEach((c, i) => {
       const dy = (i - (comps.length - 1) / 2) * 84;
-      this.time.delayedCall(i * 700, () => {
+      this.time.delayedCall(i * 800, () => {
         const stars = '★'.repeat(c.stars) + '☆'.repeat(5 - c.stars);
-        const flair = c.bigHit ? '💥大ヒット！\n'
-          : (c.specialistCount > 0 ? '✨専門家ボーナス！\n' : (c.onTrend ? '🔥流行的中！\n' : ''));
-        const color = c.bigHit ? '#ff7eb6' : COLORS.gold;
+        const flair = c.bigHit        ? '💥 大ヒット！\n'
+          : c.specialistCount > 0     ? '✨ 専門家ボーナス！\n'
+          : c.onTrend                 ? '🔥 流行的中！\n'
+          : c.seasonHit               ? '🌸 旬の一品！\n'
+          : '';
+        const color = c.bigHit ? '#ff7eb6' : (c.stars >= 4 ? COLORS.gold : COLORS.text);
         if (c.bigHit) Sfx.bigHit(); else Sfx.complete();
-        this.popOffice(`${flair}${c.garment.name} 完成!\n${stars}\n${c.units}着 +¥${c.revenue.toLocaleString()}`, color, 30, dy);
+        this.popOffice(
+          `${flair}${c.garment.name} 完成！\n${stars}\n${c.units}着  +¥${c.revenue.toLocaleString()}`,
+          color, c.bigHit ? 34 : 28, dy,
+        );
       });
+      // 大ヒットは少し遅れてもう一発
+      if (c.bigHit) {
+        this.time.delayedCall(i * 800 + 900, () => {
+          this.popText(
+            OFFICE.x + OFFICE.w / 2,
+            OFFICE.y + OFFICE.h / 2 - 60,
+            `💰 +¥${c.revenue.toLocaleString()}`, '#ff7eb6', '26px', true,
+          );
+        });
+      }
     });
 
     const rankUp = events.find((e) => e.type === 'rankup');
@@ -771,13 +786,37 @@ export class GameScene extends Phaser.Scene {
 
     const lvs = events.filter((e) => e.type === 'levelup');
     lvs.forEach((lv, i) => {
-      this.time.delayedCall(comps.length * 700 + i * 400, () => {
+      this.time.delayedCall(comps.length * 700 + i * 500, () => {
         const w = this.walkers.get(lv.empId);
-        const px = w ? w.x : OFFICE.x + OFFICE.w / 2;
-        const py = w ? w.y - 30 : OFFICE.y + 60;
-        this.popText(px, py, `Lv${lv.level}↑`, COLORS.good, '16px');
+        if (w) {
+          // スプライトを白くフラッシュ
+          const sprite = w.list[0];
+          if (sprite?.setTint) {
+            sprite.setTint(0xffffff);
+            this.time.delayedCall(150, () => sprite.clearTint());
+          }
+          // キャラの上に大きなLvUPポップ
+          this.popText(w.x, w.y - 60,
+            `⬆ Lv${lv.level}！\n${lv.name}`, COLORS.good, '18px', true);
+        } else {
+          this.popText(OFFICE.x + OFFICE.w / 2, OFFICE.y + 80,
+            `⬆ ${lv.name} Lv${lv.level}！`, COLORS.good, '18px', true);
+        }
       });
     });
+
+    const rivalOvertook = events.find((e) => e.type === 'rival_overtook');
+    if (rivalOvertook) {
+      this.time.delayedCall(300, () => {
+        this.popOffice(`😤 ${rivalOvertook.name}に\n抜かれた！巻き返せ！`, COLORS.bad, 22);
+      });
+    }
+    const rivalBeaten = events.find((e) => e.type === 'rival_beaten');
+    if (rivalBeaten) {
+      this.time.delayedCall(300, () => {
+        this.popOffice(`🎯 ${rivalBeaten.name}を\n抜き返した！`, COLORS.good, 22);
+      });
+    }
 
     if (this.state.money < 0 && !this.state.gameOver) {
       this.popOffice('⚠ 資金がマイナス！\n服を完成させて売ろう', COLORS.bad, 18);
@@ -805,31 +844,49 @@ export class GameScene extends Phaser.Scene {
   // ── 歩くおじさん ─────────────────────────────────────────
   addWalker(e) {
     const job = dominantJob(e);
-    const variant = job.id;
-    const idx = this.state.employees.findIndex(emp => emp.id === e.id);
-    const seat = SEATS[idx] ?? { x: ROOM.x + ROOM.w / 2, y: ROOM.y + ROOM.h / 2 };
 
-    let sprite;
-    const idleKey = `ojisan_${variant}_idle_1`;
-    if (this.textures.exists(idleKey)) {
-      sprite = this.add.image(0, 0, idleKey).setOrigin(0.5, 1);
-    } else {
-      const body = this.add.rectangle(0, 0, 24, 32, job.color).setStrokeStyle(2, 0x20223a);
-      const head = this.add.circle(0, -20, 10, 0xf0c8a0).setStrokeStyle(2, 0x20223a);
-      sprite = this.add.container(0, 0, [body, head]);
-    }
+    const startX = WALK_AREA.x + Math.random() * WALK_AREA.w;
+    const startY = WALK_AREA.y + Math.random() * WALK_AREA.h;
 
-    // 座席での上下bob（仕事してる感）
-    this.tweens.add({
-      targets: sprite, y: '-=4', duration: 900,
-      yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
-    });
+    // プレースホルダー: 頭+体の小人
+    const body = this.add.rectangle(0, 2, 16, 22, job.color).setStrokeStyle(2, 0x20223a);
+    const head = this.add.circle(0, -14, 10, 0xf0c8a0).setStrokeStyle(2, 0x20223a);
+    const tag  = this.add.text(0, -28, e.name, {
+      fontFamily: FONT, fontSize: '10px', color: COLORS.text,
+    }).setOrigin(0.5, 1);
 
-    const tag = this.add.text(0, 6, e.name, { fontFamily: FONT, fontSize: '11px', color: COLORS.text })
-      .setOrigin(0.5, 0);
-    const cont = this.add.container(seat.x, seat.y, [sprite, tag]).setDepth(10);
+    const cont = this.add.container(startX, startY, [body, head, tag]);
     cont.empId = e.id;
     this.walkerLayer.add(cont);
     this.walkers.set(e.id, cont);
+
+    this.startWalking(cont);
+  }
+
+  startWalking(walker) {
+    if (!walker.active) return;
+
+    const tx = WALK_AREA.x + Math.random() * WALK_AREA.w;
+    const ty = WALK_AREA.y + Math.random() * WALK_AREA.h;
+    const dist = Phaser.Math.Distance.Between(walker.x, walker.y, tx, ty);
+    const duration = Math.max(600, (dist / 70) * 1000);
+
+    // 進行方向に合わせて左右反転
+    const body = walker.list[0];
+    if (body?.setFlipX) body.setFlipX(tx < walker.x);
+
+    this.tweens.add({
+      targets: walker,
+      x: tx, y: ty,
+      duration,
+      ease: 'Linear',
+      onComplete: () => {
+        if (!walker.active) return;
+        // 少し立ち止まってから次へ
+        this.time.delayedCall(800 + Math.random() * 1600, () => {
+          this.startWalking(walker);
+        });
+      },
+    });
   }
 }

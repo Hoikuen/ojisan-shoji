@@ -2,7 +2,7 @@
 // Phaser を一切 import しない。数字だけで動くので node でシミュレーション検証できる。
 // 描画(GameScene)はこの state を読み、ここの関数を呼んで結果(events)をアニメ表示するだけ。
 
-import { SEASONS, GARMENTS, JOB_TYPES, LAST_NAMES, FIRST_NAMES, RANKS, EVENTS, TECHS } from '../data/content.js';
+import { SEASONS, GARMENTS, JOB_TYPES, LAST_NAMES, FIRST_NAMES, RANKS, EVENTS, TECHS, RIVAL_NAMES } from '../data/content.js';
 import { TUNING } from '../data/tuning.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -90,8 +90,12 @@ export function createState(rng = Math.random) {
     // 新規フィールド
     techs: [],                // 研究済みのtech id 一覧
     stores: 0,                // 店舗数
-    pendingEvent: null,       // 次のコレクション完成に適用されるイベント
-    lastEventWeek: 0,         // 最後にイベントが発生した週
+    pendingEvent: null,
+    lastEventWeek: 0,
+    rival: {
+      name: RIVAL_NAMES[Math.floor(rng() * RIVAL_NAMES.length)],
+      revenue: 0,
+    },
     _eid: 1,
     _pid: 1,
   };
@@ -413,6 +417,17 @@ export function advanceWeek(state, rng = Math.random) {
       state.pendingEvent = { ...ev };
       events.push({ type: 'event', event: ev, immediate: false });
     }
+  }
+
+  // 5.8) ライバル成長 + 順位変動イベント
+  if (!state.rival) state.rival = { name: 'グローバル商事', revenue: 0 };
+  const rivalRevBefore = state.rival.revenue;
+  const rivalGrowth = Math.round(160 * (1 + state.week * 0.018) * (0.75 + rng() * 0.5));
+  state.rival.revenue += rivalGrowth;
+  if (rivalRevBefore <= revenueBefore && state.rival.revenue > state.totalRevenue && state.totalRevenue > 0) {
+    events.push({ type: 'rival_overtook', name: state.rival.name });
+  } else if (revenueBefore < rivalRevBefore && state.totalRevenue >= state.rival.revenue) {
+    events.push({ type: 'rival_beaten', name: state.rival.name });
   }
 
   // 6) 倒産判定

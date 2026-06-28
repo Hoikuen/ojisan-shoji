@@ -5,12 +5,20 @@ export const SEASONS = ['春', '夏', '秋', '冬'];
 
 // ランダムイベント（数週に1回発生）。effect は core.js が解釈する。
 export const EVENTS = [
-  { id: 'magazine',  text: '📰 雑誌に掲載された！',  effect: 'salesBoost',   value: 0.35,  desc: '次のコレクション売上 +35%' },
-  { id: 'rival',     text: '😤 競合が先手を打った…', effect: 'scorePenalty', value: 15,    desc: '次のコレクション評価 −15点' },
-  { id: 'celebrity', text: '🌟 有名人が着用！',       effect: 'bigHitBoost',  value: 0.25,  desc: '次のコレクション大ヒット確率 +25%' },
-  { id: 'sale',      text: '🛒 突発的な特需！',       effect: 'bonusMoney',   value: 600,   desc: 'いますぐ +¥600' },
-  { id: 'material',  text: '📦 原材料費が高騰…',      effect: 'salesCut',     value: 0.25,  desc: '次のコレクション売上 −25%' },
+  { id: 'magazine',   text: '📰 雑誌に掲載された！',      effect: 'salesBoost',   value: 0.35, desc: '次のコレクション売上 +35%' },
+  { id: 'rival_fail', text: '😤 競合が失敗作を出した！',   effect: 'scorePenalty', value: 15,   desc: '次のコレクション評価 −15点' },
+  { id: 'celebrity',  text: '🌟 有名人が着用！',           effect: 'bigHitBoost',  value: 0.25, desc: '次のコレクション大ヒット確率 +25%' },
+  { id: 'sale',       text: '🛒 突発的な特需！',           effect: 'bonusMoney',   value: 600,  desc: 'いますぐ +¥600' },
+  { id: 'material',   text: '📦 原材料費が高騰…',          effect: 'salesCut',     value: 0.25, desc: '次のコレクション売上 −25%' },
+  { id: 'sns',        text: '📱 SNSで爆バズり！',          effect: 'salesBoost',   value: 0.55, desc: '次のコレクション売上 +55%' },
+  { id: 'award',      text: '🏆 デザイン賞を受賞！',       effect: 'bigHitBoost',  value: 0.35, desc: '次のコレクション大ヒット確率 +35%' },
+  { id: 'subsidy',    text: '💴 国の補助金が下りた！',     effect: 'bonusMoney',   value: 900,  desc: 'いますぐ +¥900' },
+  { id: 'quality',    text: '✂️ 職人が手を抜いた…',        effect: 'scorePenalty', value: 20,   desc: '次のコレクション評価 −20点' },
+  { id: 'recall',     text: '😱 素材に不良品が混入…',      effect: 'salesCut',     value: 0.40, desc: '次のコレクション売上 −40%' },
 ];
+
+// ライバル会社名プール
+export const RIVAL_NAMES = ['グローバル商事', 'スタイル株式会社', 'ファッション大手', 'トレンド工業', 'モード商会'];
 
 // 研究・技術開発（一度購入するとパッシブ効果が永続）。
 export const TECHS = [

@@ -7,10 +7,10 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     const variants = ['sales', 'plan', 'design'];
-    const frames = ['idle_1', 'idle_2', 'walk_1', 'walk_2', 'walk_3', 'walk_4', 'think', 'work'];
+    const seatedFrames = ['sit_idle_1', 'sit_idle_2', 'sit_work', 'sit_think'];
     for (const v of variants) {
-      for (const f of frames) {
-        this.load.image(`ojisan_${v}_${f}`, `assets/sprites/ojisan_${v}/${f}.png`);
+      for (const f of seatedFrames) {
+        this.load.image(`ojisan_${v}_${f}`, `assets/sprites/ojisan_${v}_seated/${f}.png`);
       }
     }
     this.load.image('bg_office_back',  'assets/bg/office_back.png');
