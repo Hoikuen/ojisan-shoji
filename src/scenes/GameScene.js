@@ -79,15 +79,14 @@ export class GameScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: '15px', color: COLORS.sub,
     }));
 
-    // 机（広いオフィスに9台）
-    const deskPos = [
-      [90, 190], [300, 190], [520, 190],
-      [90, 330], [300, 330], [520, 330],
-      [90, 470], [300, 470], [520, 470],
-    ];
-    for (const [dx, dy] of deskPos) {
-      this.bgLayer.add(this.add.rectangle(OFFICE.x + dx, OFFICE.y + dy, 80, 36, COLORS.desk)
-        .setStrokeStyle(2, 0x3c3026));
+    // オフィス背景画像（机・床・窓が一体化）
+    if (this.textures.exists('bg_office')) {
+      const bg = this.add.image(ROOM.x, ROOM.y, 'bg_office').setOrigin(0, 0);
+      bg.setDisplaySize(ROOM.w, ROOM.h);
+      this.bgLayer.add(bg);
+    } else {
+      const floor = this.add.rectangle(ROOM.x, ROOM.y, ROOM.w, ROOM.h, COLORS.officeFloor).setOrigin(0, 0);
+      this.bgLayer.add(floor);
     }
 
     // 右パネル（社員・開発）

@@ -14,7 +14,7 @@ const config = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  render: { pixelArt: false, antialias: true },
+  render: { pixelArt: true, antialias: false },
 };
 
 const game = new Phaser.Game(config);
