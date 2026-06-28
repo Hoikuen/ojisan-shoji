@@ -14,12 +14,15 @@ import { saveGame, loadGame, clearSave } from '../game/save.js';
 import { Sfx } from '../game/sfx.js';
 import { makeButton, makeProgressBar, makePanel, COLORS, FONT } from '../ui/widgets.js';
 
-// ── 画面レイアウト（左：オフィス＋操作、右：社員一覧）──
-const HUD_H = 50;
-const OFFICE = { x: 16, y: 58, w: 580, h: 300 };
-const BOTTOM = { x: 16, y: 366, w: 580, h: 218 };
-const EMP = { x: 608, y: 58, w: 336, h: 526 };
-const ROOM = { x: 32, y: 96, w: 548, h: 224 };
+// ── 画面レイアウト ──────────────────────────────────────────
+// HUD バー（資金・週・季節） → アクションバー（ボタン横一列） → 左:オフィス / 右:社員+開発
+const HUD_H     = 44;
+const ACT_H     = 44;
+const CONTENT_Y = HUD_H + ACT_H; // 88
+const OFFICE = { x: 0,   y: CONTENT_Y, w: 676, h: 512 };
+const ROOM   = { x: 16,  y: CONTENT_Y + 48, w: 644, h: 440 };
+const EMP    = { x: 680, y: CONTENT_Y,       w: 280, h: 268 };
+const PROJ   = { x: 680, y: CONTENT_Y + 272, w: 280, h: 240 };
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -54,7 +57,6 @@ export class GameScene extends Phaser.Scene {
         this.onNextWeek();
       }
     });
-    // BGM: 最初のポインター操作で開始（Web Audio の制約）
     this.input.on('pointerdown', () => {
       if (!Sfx.isMuted()) Sfx.startBgm();
     });
@@ -64,23 +66,33 @@ export class GameScene extends Phaser.Scene {
 
   // ── 静的な枠 ──────────────────────────────────────────────
   buildStaticFrame() {
+    // HUD 背景
     this.bgLayer.add(makePanel(this, 0, 0, GAME_W, HUD_H, 0x2a2c44));
+    // アクションバー背景
+    this.bgLayer.add(makePanel(this, 0, HUD_H, GAME_W, ACT_H, 0x22243a));
 
+    // オフィス
     this.bgLayer.add(makePanel(this, OFFICE.x, OFFICE.y, OFFICE.w, OFFICE.h, COLORS.office));
-    const floor = this.add.rectangle(OFFICE.x + 10, OFFICE.y + 34, OFFICE.w - 20, OFFICE.h - 44, COLORS.officeFloor)
-      .setOrigin(0, 0);
+    const floor = this.add.rectangle(ROOM.x, ROOM.y, ROOM.w, ROOM.h, COLORS.officeFloor).setOrigin(0, 0);
     this.bgLayer.add(floor);
-    this.bgLayer.add(this.add.text(OFFICE.x + 12, OFFICE.y + 8, '🏢 オフィス', {
+    this.bgLayer.add(this.add.text(OFFICE.x + 8, OFFICE.y + 8, '🏢 オフィス', {
       fontFamily: FONT, fontSize: '15px', color: COLORS.sub,
     }));
-    const deskPos = [[90, 150], [250, 150], [410, 150], [90, 270], [250, 270], [410, 270]];
+
+    // 机（広いオフィスに9台）
+    const deskPos = [
+      [90, 190], [300, 190], [520, 190],
+      [90, 330], [300, 330], [520, 330],
+      [90, 470], [300, 470], [520, 470],
+    ];
     for (const [dx, dy] of deskPos) {
-      this.bgLayer.add(this.add.rectangle(OFFICE.x + dx, OFFICE.y + dy, 64, 30, COLORS.desk)
+      this.bgLayer.add(this.add.rectangle(OFFICE.x + dx, OFFICE.y + dy, 80, 36, COLORS.desk)
         .setStrokeStyle(2, 0x3c3026));
     }
 
+    // 右パネル（社員・開発）
     this.bgLayer.add(makePanel(this, EMP.x, EMP.y, EMP.w, EMP.h, COLORS.panel));
-    this.bgLayer.add(makePanel(this, BOTTOM.x, BOTTOM.y, BOTTOM.w, BOTTOM.h, COLORS.panel));
+    this.bgLayer.add(makePanel(this, PROJ.x, PROJ.y, PROJ.w, PROJ.h, COLORS.panel));
   }
 
   // ── HUD ────────────────────────────────────────────────────
@@ -90,31 +102,31 @@ export class GameScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: size, color,
     }).setOrigin(0, 0.5);
 
-    this.add.text(16, y, 'おじさん商事', { fontFamily: FONT, fontSize: '18px', color: COLORS.gold })
+    this.add.text(12, y, 'おじさん商事', { fontFamily: FONT, fontSize: '17px', color: COLORS.gold })
       .setOrigin(0, 0.5);
-    this.hudRank   = mk(168, '15px', COLORS.gold);
-    this.hudMoney  = mk(348, '19px', COLORS.text);
-    this.hudWeek   = mk(478, '15px', COLORS.text);
-    this.hudSeason = mk(556, '15px', COLORS.text);
-    this.hudSalary = mk(648, '13px', COLORS.sub);
+    this.hudRank   = mk(160, '14px', COLORS.gold);
+    this.hudMoney  = mk(330, '18px', COLORS.text);
+    this.hudWeek   = mk(460, '14px', COLORS.text);
+    this.hudSeason = mk(534, '14px', COLORS.text);
+    this.hudSalary = mk(614, '12px', COLORS.sub);
 
-    const muteBtn = makeButton(this, 812, 11, 50, 28, Sfx.isMuted() ? '🔇' : '🔊', () => {
+    const muteBtn = makeButton(this, GAME_W - 134, 8, 50, 28, Sfx.isMuted() ? '🔇' : '🔊', () => {
       const m = Sfx.toggleMute();
       muteBtn.labelText.setText(m ? '🔇' : '🔊');
     }, { color: 0x44475a, hover: 0x5a5e78, fontSize: '15px' });
 
-    makeButton(this, 870, 11, 78, 28, 'やり直す', () => this.confirmReset(), {
+    makeButton(this, GAME_W - 76, 8, 68, 28, 'やり直す', () => this.confirmReset(), {
       color: 0x6a4a5a, hover: 0x8a5f72, fontSize: '12px',
     });
 
-    // オフィス内の常設テキスト
-    this.trendText = this.add.text(OFFICE.x + 120, OFFICE.y + 9, '', {
+    // オフィス内の常設テキスト（オフィスヘッダー行）
+    this.trendText = this.add.text(OFFICE.x + 110, OFFICE.y + 10, '', {
       fontFamily: FONT, fontSize: '13px', color: COLORS.gold,
     });
-    this.eventText = this.add.text(OFFICE.x + 120, OFFICE.y + 25, '', {
+    this.eventText = this.add.text(OFFICE.x + 110, OFFICE.y + 27, '', {
       fontFamily: FONT, fontSize: '12px', color: '#ff9f43',
     });
-    this.goalText = this.add.text(OFFICE.x + 12, OFFICE.y + OFFICE.h - 20, '', {
+    this.goalText = this.add.text(OFFICE.x + 8, OFFICE.y + OFFICE.h - 18, '', {
       fontFamily: FONT, fontSize: '12px', color: COLORS.sub,
     });
   }
@@ -132,7 +144,6 @@ export class GameScene extends Phaser.Scene {
     const trendName = (GARMENTS.find((g) => g.id === s.trendGarment) || {}).name || '';
     this.trendText.setText(`🔥 今季の流行: ${trendName}`);
 
-    // 待機中イベント
     if (s.pendingEvent) {
       this.eventText.setText(`📣 ${s.pendingEvent.text}  →  ${s.pendingEvent.desc}`);
     } else {
@@ -162,26 +173,28 @@ export class GameScene extends Phaser.Scene {
     this.updateHud();
     this.uiLayer.removeAll(true);
     this.buildEmployeePanel();
-    this.buildBottomPanel();
+    this.buildActionBar();
+    this.buildProjectPanel();
     this.save();
   }
 
-  // ── 右：社員一覧 ─────────────────────────────────────────
+  // ── 右上：社員一覧 ────────────────────────────────────────
   buildEmployeePanel() {
     const s = this.state;
-    this.uiLayer.add(this.add.text(EMP.x + 14, EMP.y + 12,
+    this.uiLayer.add(this.add.text(EMP.x + 12, EMP.y + 10,
       `社員  ${s.employees.length}/${s.maxEmployees}`, {
-        fontFamily: FONT, fontSize: '17px', color: COLORS.text,
+        fontFamily: FONT, fontSize: '16px', color: COLORS.text,
       }));
 
-    const rowH = 58;
-    let ry = EMP.y + 44;
+    const rowH = 56;
+    let ry = EMP.y + 40;
     for (const e of s.employees) {
-      this.buildEmployeeRow(e, EMP.x + 10, ry, EMP.w - 20, rowH - 6);
+      if (ry + rowH > EMP.y + EMP.h - 4) break; // パネル外に出ない
+      this.buildEmployeeRow(e, EMP.x + 8, ry, EMP.w - 16, rowH - 4);
       ry += rowH;
     }
     if (s.employees.length === 0) {
-      this.uiLayer.add(this.add.text(EMP.x + 14, ry, '「採用」でおじさんを雇おう', {
+      this.uiLayer.add(this.add.text(EMP.x + 12, ry, '「採用」でおじさんを雇おう', {
         fontFamily: FONT, fontSize: '13px', color: COLORS.sub,
       }));
     }
@@ -196,19 +209,17 @@ export class GameScene extends Phaser.Scene {
     row.on('pointerdown', () => this.openEmployeeDetail(e.id));
     this.uiLayer.add(row);
 
-    this.uiLayer.add(this.add.rectangle(x + 6, y + 6, 14, 14, job.color).setOrigin(0, 0));
-    this.uiLayer.add(this.add.text(x + 26, y + 5, `${e.name}  Lv${e.level}`, {
-      fontFamily: FONT, fontSize: '14px', color: COLORS.text,
+    this.uiLayer.add(this.add.rectangle(x + 6, y + 6, 12, 12, job.color).setOrigin(0, 0));
+    this.uiLayer.add(this.add.text(x + 24, y + 4, `${e.name}  Lv${e.level}`, {
+      fontFamily: FONT, fontSize: '13px', color: COLORS.text,
     }));
-    this.uiLayer.add(this.add.text(x + 26, y + 24, `企${e.plan} デ${e.design} 営${e.sales}`, {
-      fontFamily: FONT, fontSize: '13px', color: COLORS.sub,
+    this.uiLayer.add(this.add.text(x + 24, y + 22, `企${e.plan} デ${e.design} 営${e.sales}`, {
+      fontFamily: FONT, fontSize: '12px', color: COLORS.sub,
     }));
-
-    // 得意コレクションバッジ
     if (e.specialty) {
       const sg = GARMENTS.find((g) => g.id === e.specialty);
       if (sg) {
-        this.uiLayer.add(this.add.text(x + 26, y + 40, `✨${sg.name}`, {
+        this.uiLayer.add(this.add.text(x + 24, y + 37, `✨${sg.name}`, {
           fontFamily: FONT, fontSize: '10px', color: COLORS.gold,
         }));
       }
@@ -217,86 +228,99 @@ export class GameScene extends Phaser.Scene {
     const assignedProj = e.projectId != null
       ? this.state.projects.find((p) => p.id === e.projectId) : null;
     const statusText = assignedProj ? `▶ ${assignedProj.def.name}` : '手すき';
-    this.uiLayer.add(this.add.text(x + 160, y + 24, `¥${salaryOf(e)}/週`, {
-      fontFamily: FONT, fontSize: '12px', color: COLORS.sub,
+    this.uiLayer.add(this.add.text(x + w - 76, y + 4, statusText, {
+      fontFamily: FONT, fontSize: '11px', color: assignedProj ? COLORS.good : '#c9b27a',
     }));
-    this.uiLayer.add(this.add.text(x + 160, y + 5, statusText, {
-      fontFamily: FONT, fontSize: '12px', color: assignedProj ? COLORS.good : '#c9b27a',
+    this.uiLayer.add(this.add.text(x + w - 76, y + 20, `¥${salaryOf(e)}/週`, {
+      fontFamily: FONT, fontSize: '11px', color: COLORS.sub,
     }));
 
-    const btnX = x + w - 70;
+    const btnX = x + w - 56;
     if (assignedProj) {
-      this.uiLayer.add(makeButton(this, btnX, y + h / 2 - 14, 62, 28, '外す', () => {
+      this.uiLayer.add(makeButton(this, btnX, y + h / 2 - 13, 50, 26, '外す', () => {
         unassign(this.state, e.id);
         this.refresh();
-      }, { color: 0x8a5a6a, hover: 0xb27486, fontSize: '13px' }));
+      }, { color: 0x8a5a6a, hover: 0xb27486, fontSize: '12px' }));
     } else {
       const hasProject = this.state.projects.length > 0;
-      this.uiLayer.add(makeButton(this, btnX, y + h / 2 - 14, 62, 28, '割当', () => {
+      this.uiLayer.add(makeButton(this, btnX, y + h / 2 - 13, 50, 26, '割当', () => {
         this.openAssignToProjectModal(e.id);
-      }, { color: COLORS.btnAccent, hover: COLORS.btnAccentHover, fontSize: '13px', disabled: !hasProject }));
+      }, { color: COLORS.btnAccent, hover: COLORS.btnAccentHover, fontSize: '12px', disabled: !hasProject }));
     }
   }
 
-  // ── 下：操作ボタン＋開発カード ───────────────────────────
-  buildBottomPanel() {
+  // ── アクションバー（HUD直下・横一列） ─────────────────────
+  buildActionBar() {
     const s = this.state;
-    const cx = BOTTOM.x + 12;
+    const ay = HUD_H + 5;
+    const bh = ACT_H - 10;
 
-    // ボタン列（5つ：次の週へ・採用・拡張・研究・店舗）
-    this.uiLayer.add(makeButton(this, cx, BOTTOM.y + 8, 168, 44, '▶ 次の週へ', () => this.onNextWeek(), {
-      color: COLORS.btnAccent, hover: COLORS.btnAccentHover, fontSize: '17px',
+    // ▶ 次の週へ
+    this.uiLayer.add(makeButton(this, 8, ay, 162, bh, '▶ 次の週へ', () => this.onNextWeek(), {
+      color: COLORS.btnAccent, hover: COLORS.btnAccentHover, fontSize: '16px',
     }));
-    this.uiLayer.add(makeButton(this, cx, BOTTOM.y + 58, 168, 26, '採用', () => this.openHireModal(), {
-      disabled: s.employees.length >= s.maxEmployees, fontSize: '14px',
+
+    // 採用
+    this.uiLayer.add(makeButton(this, 178, ay, 96, bh, '採用', () => this.openHireModal(), {
+      disabled: s.employees.length >= s.maxEmployees, fontSize: '13px',
     }));
+
+    // 拡張
     const exMax = expandMaxed(s);
-    this.uiLayer.add(makeButton(this, cx, BOTTOM.y + 88, 168, 26,
-      exMax ? '拡張 (最大)' : `拡張 ¥${expandCost(s).toLocaleString()}`,
+    this.uiLayer.add(makeButton(this, 282, ay, 130, bh,
+      exMax ? '拡張(最大)' : `拡張 ¥${expandCost(s).toLocaleString()}`,
       () => this.onExpand(), {
-        disabled: !canExpand(s), color: 0x9a7b3a, hover: 0xc29a4a, fontSize: '13px',
+        disabled: !canExpand(s), color: 0x9a7b3a, hover: 0xc29a4a, fontSize: '12px',
       }));
 
-    // 研究ボタン（研究済み数を表示）
+    // 🔬 研究
     const doneCount = s.techs.length;
-    this.uiLayer.add(makeButton(this, cx, BOTTOM.y + 118, 168, 26,
-      `🔬 研究 (${doneCount}/${TECHS.length})`,
+    this.uiLayer.add(makeButton(this, 420, ay, 118, bh,
+      `🔬研究(${doneCount}/${TECHS.length})`,
       () => this.openResearchModal(), {
-        color: 0x5a3a9a, hover: 0x7a50cc, fontSize: '13px',
+        color: 0x5a3a9a, hover: 0x7a50cc, fontSize: '12px',
       }));
 
-    // 店舗ボタン
+    // 🏪 店舗
     const maxStore = (s.stores || 0) >= TUNING.storeMaxCount;
-    this.uiLayer.add(makeButton(this, cx, BOTTOM.y + 148, 168, 26,
-      maxStore ? `🏪 店舗 (最大${s.stores}軒)` : `🏪 店舗 ¥${storeCost(s).toLocaleString()}`,
+    this.uiLayer.add(makeButton(this, 546, ay, 118, bh,
+      maxStore ? `🏪店舗(最大)` : `🏪店舗 ¥${storeCost(s).toLocaleString()}`,
       () => this.openStoreModal(), {
-        disabled: false, color: 0x3a7a6a, hover: 0x4eaa8e, fontSize: '13px',
+        color: 0x3a7a6a, hover: 0x4eaa8e, fontSize: '12px',
       }));
 
-    // ステータステキスト
+    // ステータステキスト（ボタン右）
     const shopStr = (s.stores || 0) > 0
       ? `🏪 ${s.stores}軒 +¥${storeWeeklyIncome(s).toLocaleString()}/週` : '';
     const empStr = s.employees.length >= s.maxEmployees ? '社員枠いっぱい' : '';
+    let stY = ay + 4;
     if (shopStr) {
-      this.uiLayer.add(this.add.text(cx, BOTTOM.y + 178, shopStr, {
+      this.uiLayer.add(this.add.text(672, stY, shopStr, {
         fontFamily: FONT, fontSize: '11px', color: COLORS.good,
       }));
+      stY += 14;
     }
     if (empStr) {
-      this.uiLayer.add(this.add.text(cx, BOTTOM.y + (shopStr ? 191 : 178), empStr, {
+      this.uiLayer.add(this.add.text(672, stY, empStr, {
         fontFamily: FONT, fontSize: '11px', color: COLORS.sub,
       }));
     }
+  }
 
-    // 開発カード（スロット＝maxProjects個）
-    const areaX = BOTTOM.x + 196;
-    const cardW = BOTTOM.w - 196 - 12;
-    const cardH = 58;
-    let cy = BOTTOM.y + 12;
+  // ── 右下：開発カード ──────────────────────────────────────
+  buildProjectPanel() {
+    const s = this.state;
+    this.uiLayer.add(this.add.text(PROJ.x + 10, PROJ.y + 8, '開発中', {
+      fontFamily: FONT, fontSize: '14px', color: COLORS.sub,
+    }));
+
+    const cardW = PROJ.w - 16;
+    const cardH = 68;
+    let cy = PROJ.y + 28;
     for (let slot = 0; slot < s.maxProjects; slot++) {
       const p = s.projects[slot];
-      if (p) this.buildProjectCard(p, areaX, cy, cardW, cardH);
-      else this.buildEmptySlot(areaX, cy, cardW, cardH);
+      if (p) this.buildProjectCard(p, PROJ.x + 8, cy, cardW, cardH);
+      else this.buildEmptySlot(PROJ.x + 8, cy, cardW, cardH);
       cy += cardH + 8;
     }
   }
@@ -311,35 +335,35 @@ export class GameScene extends Phaser.Scene {
 
     // タイトル行
     const badge = onTrend ? ' 🔥流行' : (hot ? ' 🔥旬' : '');
-    this.uiLayer.add(this.add.text(x + 10, y + 5,
+    this.uiLayer.add(this.add.text(x + 8, y + 5,
       `${def.name} [${def.season}]${badge}`, {
-        fontFamily: FONT, fontSize: '15px', color: (onTrend || hot) ? COLORS.gold : COLORS.text,
+        fontFamily: FONT, fontSize: '13px', color: (onTrend || hot) ? COLORS.gold : COLORS.text,
       }));
 
     // 社員追加ボタン
     const idle = idleEmployees(s).length;
-    this.uiLayer.add(makeButton(this, x + w - 90, y + 5, 82, 22, '＋社員追加', () => {
+    this.uiLayer.add(makeButton(this, x + w - 82, y + 4, 74, 20, '＋社員追加', () => {
       this.openAssignModal(p.id);
-    }, { fontSize: '12px', disabled: idle === 0, color: COLORS.btnAccent, hover: COLORS.btnAccentHover }));
+    }, { fontSize: '11px', disabled: idle === 0, color: COLORS.btnAccent, hover: COLORS.btnAccentHover }));
 
     // 進捗バー
     const ratio = p.progress / def.workNeeded;
-    this.uiLayer.add(makeProgressBar(this, x + 10, y + 28, w - 20, 13, ratio, def.color));
-    this.uiLayer.add(this.add.text(x + w / 2, y + 28 + 6,
+    this.uiLayer.add(makeProgressBar(this, x + 8, y + 30, w - 16, 12, ratio, def.color));
+    this.uiLayer.add(this.add.text(x + w / 2, y + 30 + 6,
       `${Math.floor(p.progress)} / ${def.workNeeded}`, {
-        fontFamily: FONT, fontSize: '11px', color: '#ffffff', stroke: '#10111c', strokeThickness: 2,
+        fontFamily: FONT, fontSize: '10px', color: '#ffffff', stroke: '#10111c', strokeThickness: 2,
       }).setOrigin(0.5));
 
-    // 担当＋完成見込み＋専門家＋シーズン締切
+    // 担当＋完成見込み＋締切
     const team = assignedTo(s, p.id);
     const hasSpecialist = team.some((e) => e.specialty === def.id);
     let line;
     if (team.length === 0) {
-      line = '担当なし — 社員を割り当てよう';
+      line = '担当なし — 割り当てよう';
     } else {
       const weekly = team.reduce((a, e) => a + e.design * TUNING.devDesign + e.plan * TUNING.devPlan, 0);
       const eta = weekly > 0 ? Math.max(1, Math.ceil((def.workNeeded - p.progress) / weekly)) : '—';
-      const weekInSeason = ((s.week - 1) % 4); // 0..3
+      const weekInSeason = ((s.week - 1) % 4);
       const weeksLeftInSeason = 3 - weekInSeason;
       const deadlineHint = (hot && typeof eta === 'number' && eta > weeksLeftInSeason)
         ? `  ⏰旬あと${weeksLeftInSeason}週` : '';
@@ -348,17 +372,17 @@ export class GameScene extends Phaser.Scene {
     }
     const lineColor = team.length === 0 ? COLORS.bad
       : (hot && line.includes('⏰') ? '#ff9f43' : COLORS.good);
-    this.uiLayer.add(this.add.text(x + 10, y + h - 16, line, {
-      fontFamily: FONT, fontSize: '12px', color: lineColor,
+    this.uiLayer.add(this.add.text(x + 8, y + h - 14, line, {
+      fontFamily: FONT, fontSize: '11px', color: lineColor,
     }));
   }
 
   buildEmptySlot(x, y, w, h) {
     const card = this.add.rectangle(x, y, w, h, 0x282a40).setOrigin(0, 0).setStrokeStyle(2, 0x3a3d5c);
     this.uiLayer.add(card);
-    this.uiLayer.add(makeButton(this, x + w / 2 - 90, y + h / 2 - 15, 180, 30, '＋ 新コレクション開発', () => {
+    this.uiLayer.add(makeButton(this, x + w / 2 - 84, y + h / 2 - 14, 168, 28, '＋ 新コレクション開発', () => {
       this.openNewCollectionModal();
-    }, { fontSize: '14px', color: COLORS.btn, hover: COLORS.btnHover }));
+    }, { fontSize: '13px', color: COLORS.btn, hover: COLORS.btnHover }));
   }
 
   // ── 週送り ────────────────────────────────────────────────
@@ -450,7 +474,6 @@ export class GameScene extends Phaser.Scene {
         const cardX = r.px + 20, cardW = r.pw - 40, cardH = 96;
         layer.add(this.add.rectangle(cardX, cy, cardW, cardH, 0x3a3d5e).setOrigin(0, 0).setStrokeStyle(1, COLORS.panelEdge));
         layer.add(this.add.text(cardX + 14, cy + 10, c.name, { fontFamily: FONT, fontSize: '17px', color: COLORS.text }));
-        // 得意コレクション
         if (c.specialty) {
           const sg = GARMENTS.find((g) => g.id === c.specialty);
           if (sg) {
@@ -648,7 +671,6 @@ export class GameScene extends Phaser.Scene {
       layer.add(this.add.text(x, r.py + 130,
         '店舗を開設すると毎週固定収入が入る。\n給料の支払い不安が和らぐ。', {
           fontFamily: FONT, fontSize: '13px', color: COLORS.sub, lineSpacing: 6 }));
-
       if (cnt >= TUNING.storeMaxCount) {
         layer.add(this.add.text(x, r.py + 190, `店舗数は最大（${TUNING.storeMaxCount}軒）です`, {
           fontFamily: FONT, fontSize: '16px', color: COLORS.gold }));
@@ -683,13 +705,11 @@ export class GameScene extends Phaser.Scene {
       this.popText(this.hudMoney.x + 90, HUD_H / 2, `-¥${sal.amount}`, COLORS.bad, '14px');
     }
 
-    // 店舗収入（小さく表示）
     const shop = events.find((e) => e.type === 'storeIncome');
     if (shop) {
       this.popText(this.hudMoney.x + 90, HUD_H / 2 - 18, `+¥${shop.amount}🏪`, COLORS.good, '13px');
     }
 
-    // ランダムイベント
     const ev = events.find((e) => e.type === 'event');
     if (ev) {
       Sfx.event();
@@ -700,7 +720,6 @@ export class GameScene extends Phaser.Scene {
       });
     }
 
-    // 完成（複数あれば縦ずらし）
     const comps = events.filter((e) => e.type === 'complete');
     comps.forEach((c, i) => {
       const dy = (i - (comps.length - 1) / 2) * 84;
@@ -714,7 +733,6 @@ export class GameScene extends Phaser.Scene {
       });
     });
 
-    // 昇格
     const rankUp = events.find((e) => e.type === 'rankup');
     if (rankUp) {
       this.time.delayedCall(comps.length * 700 + 200, () => {
@@ -723,7 +741,6 @@ export class GameScene extends Phaser.Scene {
       });
     }
 
-    // 新コレクション解放
     const unlocks = events.filter((e) => e.type === 'unlock');
     unlocks.forEach((u, i) => {
       this.time.delayedCall(comps.length * 700 + 500 + i * 500, () => {
@@ -732,7 +749,6 @@ export class GameScene extends Phaser.Scene {
       });
     });
 
-    // レベルアップ
     const lvs = events.filter((e) => e.type === 'levelup');
     lvs.forEach((lv, i) => {
       this.time.delayedCall(comps.length * 700 + i * 400, () => {
@@ -769,14 +785,14 @@ export class GameScene extends Phaser.Scene {
   // ── 歩くおじさん ─────────────────────────────────────────
   addWalker(e) {
     const job = dominantJob(e);
-    const variant = job.id; // 'plan' | 'design' | 'sales'
+    const variant = job.id;
     const sx = Phaser.Math.Between(ROOM.x, ROOM.x + ROOM.w);
     const sy = Phaser.Math.Between(ROOM.y, ROOM.y + ROOM.h);
 
     let sprite;
     const idleKey = `ojisan_${variant}_idle_1`;
     if (this.textures.exists(idleKey)) {
-      sprite = this.add.image(0, 0, idleKey).setOrigin(0.5, 1);
+      sprite = this.add.image(0, 0, idleKey).setOrigin(0.5, 1).setDisplaySize(64, 96);
       const walkKeys = [1, 2, 3, 4].map(i => `ojisan_${variant}_walk_${i}`);
       let wf = 0;
       this.time.addEvent({
@@ -788,14 +804,13 @@ export class GameScene extends Phaser.Scene {
         },
       });
     } else {
-      // フォールバック（スプライトなし）
-      const body = this.add.rectangle(0, 0, 18, 22, job.color).setStrokeStyle(2, 0x20223a);
-      const head = this.add.circle(0, -15, 7, 0xf0c8a0).setStrokeStyle(2, 0x20223a);
+      const body = this.add.rectangle(0, 0, 24, 32, job.color).setStrokeStyle(2, 0x20223a);
+      const head = this.add.circle(0, -20, 10, 0xf0c8a0).setStrokeStyle(2, 0x20223a);
       sprite = this.add.container(0, 0, [body, head]);
-      this.tweens.add({ targets: [body, head], y: '-=3', duration: 320, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      this.tweens.add({ targets: [body, head], y: '-=4', duration: 320, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     }
 
-    const tag = this.add.text(0, 4, e.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.text })
+    const tag = this.add.text(0, 6, e.name, { fontFamily: FONT, fontSize: '11px', color: COLORS.text })
       .setOrigin(0.5, 0);
     const cont = this.add.container(sx, sy, [sprite, tag]).setDepth(10);
     cont.empId = e.id;
