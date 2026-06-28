@@ -6,16 +6,18 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    const variants = ['sales', 'plan', 'design'];
-    const seatedFrames = ['sit_idle_1', 'sit_idle_2', 'sit_work', 'sit_think'];
-    for (const v of variants) {
-      for (const f of seatedFrames) {
-        this.load.image(`ojisan_${v}_${f}`, `assets/sprites/ojisan_${v}_seated/${f}.png`);
-      }
+    // キャラプール: 0=おじさん主人公, 1=OL田中, 2=後輩鈴木,
+    //              3=後輩コーヒー, 4=おかあさん, 5=ゾンビリーマン
+    for (let i = 0; i < 6; i++) {
+      this.load.image(`char_${i}_idle`, `assets/sprites/ojisan_char${i}/idle.png`);
     }
-    this.load.image('bg_office_back',  'assets/bg/office_back.png');
-    this.load.image('bg_office_front', 'assets/bg/office_front.png');
-    this.load.image('bg_office', 'assets/bg/office.png'); // fallback
+    // char0（おじさん主人公）のみ歩行フレームあり
+    for (let f = 1; f <= 4; f++) {
+      this.load.image(`char_0_walk_${f}`, `assets/sprites/ojisan_char0/walk_${f}.png`);
+    }
+
+    this.load.image('bg_office_back', 'assets/bg/office_back.png');
+    this.load.image('bg_office',      'assets/bg/office.png');
     const icons = ['haramaki', 'polo', 'chan', 'suit'];
     for (const id of icons) {
       this.load.image(`icon_${id}`, `assets/icons/${id}.png`);

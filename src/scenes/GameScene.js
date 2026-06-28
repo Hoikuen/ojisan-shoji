@@ -841,22 +841,38 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  // ── 歩くおじさん ─────────────────────────────────────────
+  // ── 歩くキャラクター ─────────────────────────────────────
+  // キャラプール: id % 6 で見た目を決定
+  // 0=おじさん主人公, 1=OL田中, 2=後輩鈴木, 3=後輩コーヒー, 4=おかあさん, 5=ゾンビ
   addWalker(e) {
+    // 社長（創業者）は常にchar0（おじさん主人公）、それ以外は id から順番に割り振り
+    const charIdx = e.founder ? 0 : ((e.id - 1) % 6);
     const job = dominantJob(e);
 
     const startX = WALK_AREA.x + Math.random() * WALK_AREA.w;
     const startY = WALK_AREA.y + Math.random() * WALK_AREA.h;
 
-    // プレースホルダー: 頭+体の小人
-    const body = this.add.rectangle(0, 2, 16, 22, job.color).setStrokeStyle(2, 0x20223a);
-    const head = this.add.circle(0, -14, 10, 0xf0c8a0).setStrokeStyle(2, 0x20223a);
-    const tag  = this.add.text(0, -28, e.name, {
+    const CHAR_H = 72;
+    const idleKey = `char_${charIdx}_idle`;
+    let sprite;
+    if (this.textures.exists(idleKey)) {
+      sprite = this.add.image(0, 0, idleKey).setOrigin(0.5, 1);
+      const src = this.textures.get(idleKey).getSourceImage();
+      sprite.setDisplaySize(Math.round(src.width * CHAR_H / src.height), CHAR_H);
+    } else {
+      const body = this.add.rectangle(0, 2, 16, 22, job.color).setStrokeStyle(2, 0x20223a);
+      const head = this.add.circle(0, -14, 10, 0xf0c8a0).setStrokeStyle(2, 0x20223a);
+      sprite = this.add.container(0, 0, [body, head]);
+    }
+
+    const tag = this.add.text(0, -(CHAR_H + 4), e.name, {
       fontFamily: FONT, fontSize: '10px', color: COLORS.text,
     }).setOrigin(0.5, 1);
 
-    const cont = this.add.container(startX, startY, [body, head, tag]);
+    const cont = this.add.container(startX, startY, [sprite, tag]);
     cont.empId = e.id;
+    cont.charIdx = charIdx;
+    cont.animTimer = null;
     this.walkerLayer.add(cont);
     this.walkers.set(e.id, cont);
 
@@ -870,10 +886,21 @@ export class GameScene extends Phaser.Scene {
     const ty = WALK_AREA.y + Math.random() * WALK_AREA.h;
     const dist = Phaser.Math.Distance.Between(walker.x, walker.y, tx, ty);
     const duration = Math.max(600, (dist / 70) * 1000);
+    const sprite = walker.list[0];
 
-    // 進行方向に合わせて左右反転
-    const body = walker.list[0];
-    if (body?.setFlipX) body.setFlipX(tx < walker.x);
+    // char0（おじさん主人公）のみ歩行フレームアニメ
+    if (walker.charIdx === 0 && this.textures.exists('char_0_walk_1')) {
+      if (sprite?.setFlipX) sprite.setFlipX(tx < walker.x);
+      const walkKeys = ['char_0_walk_1', 'char_0_walk_2', 'char_0_walk_3', 'char_0_walk_4'];
+      let fi = 0;
+      walker.animTimer = this.time.addEvent({
+        delay: 130, repeat: -1,
+        callback: () => {
+          if (!walker.active) return;
+          if (sprite?.setTexture) sprite.setTexture(walkKeys[fi++ % walkKeys.length]);
+        },
+      });
+    }
 
     this.tweens.add({
       targets: walker,
@@ -882,9 +909,16 @@ export class GameScene extends Phaser.Scene {
       ease: 'Linear',
       onComplete: () => {
         if (!walker.active) return;
-        // 少し立ち止まってから次へ
+        if (walker.animTimer) {
+          walker.animTimer.remove();
+          walker.animTimer = null;
+          if (sprite?.setTexture) {
+            sprite.setTexture(`char_${walker.charIdx}_idle`);
+            if (sprite?.setFlipX) sprite.setFlipX(false);
+          }
+        }
         this.time.delayedCall(800 + Math.random() * 1600, () => {
-          this.startWalking(walker);
+          if (walker.active) this.startWalking(walker);
         });
       },
     });
