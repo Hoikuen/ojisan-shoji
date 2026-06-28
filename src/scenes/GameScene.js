@@ -90,21 +90,13 @@ export class GameScene extends Phaser.Scene {
     // アクションバー背景
     this.bgLayer.add(makePanel(this, 0, HUD_H, GAME_W, ACT_H, 0x22243a));
 
-    // オフィス背景：上部ストリップ（窓・天井）＋ 下は広い床
+    // オフィス背景：フル画像1枚表示
     const bgKey = this.textures.exists('bg_office_back') ? 'bg_office_back'
       : this.textures.exists('bg_office') ? 'bg_office' : null;
     if (bgKey) {
-      // 背景画像は上部の窓エリアだけをストリップ表示
       const bg = this.add.image(OFFICE.x, OFFICE.y, bgKey).setOrigin(0, 0);
-      const srcW = this.textures.get(bgKey).getSourceImage().width;
-      bg.setCrop(0, 0, srcW, BG_STRIP_SRC_H);
-      bg.setDisplaySize(OFFICE.w, BG_STRIP_H);
+      bg.setDisplaySize(OFFICE.w, OFFICE.h);
       this.bgLayer.add(bg);
-      // 窓ストリップより下は広い木床
-      const floorY = OFFICE.y + BG_STRIP_H;
-      this.bgLayer.add(
-        this.add.rectangle(OFFICE.x, floorY, OFFICE.w, OFFICE.h - BG_STRIP_H, FLOOR_COLOR).setOrigin(0, 0),
-      );
     } else {
       this.bgLayer.add(this.add.rectangle(OFFICE.x, OFFICE.y, OFFICE.w, OFFICE.h, FLOOR_COLOR).setOrigin(0, 0));
     }
