@@ -169,7 +169,10 @@ export function generateCandidates(state, rng = Math.random) {
     const specialty = rng() < T.specialtyChance
       ? GARMENTS[Math.floor(rng() * GARMENTS.length)].id
       : null;
-    list.push({ cid: ++_nameSeed, name: makeName(rng), plan, design, sales, fee, specialty });
+    // 採用後に割り当てられる charIdx を先読みして固定名を表示
+    const previewCharIdx = (state._eid + i - 1) % 6;
+    const fixedName = CHAR_FIXED_NAMES[previewCharIdx];
+    list.push({ cid: ++_nameSeed, name: fixedName ?? makeName(rng), previewCharIdx, plan, design, sales, fee, specialty });
   }
   return list;
 }
@@ -192,11 +195,12 @@ export function hire(state, cand) {
   if (!canHire(state, cand)) return null;
   state.money -= cand.fee;
   const newId = state._eid++;
-  const charIdx = (newId - 1) % 6;
+  const charIdx = cand.previewCharIdx ?? ((newId - 1) % 6);
   const fixedName = CHAR_FIXED_NAMES[charIdx];
   const e = {
     id: newId,
     name: fixedName ?? cand.name,
+    charIdx,
     plan: cand.plan,
     design: cand.design,
     sales: cand.sales,

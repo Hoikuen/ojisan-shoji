@@ -23,12 +23,17 @@ const OFFICE = { x: 0,   y: CONTENT_Y, w: 676, h: 512 };
 const EMP    = { x: 680, y: CONTENT_Y,       w: 280, h: 268 };
 const PROJ   = { x: 680, y: CONTENT_Y + 272, w: 280, h: 240 };
 
-// キャラが歩き回れるオフィス床エリア（窓・壁より下の床部分のみ）
+// 背景画像の上部ストリップ（窓・天井エリア）だけを表示する高さ
+const BG_STRIP_SRC_H = 180; // 元画像から切り取るピクセル数
+const BG_STRIP_H = 175;     // 画面上の表示高さ
+const FLOOR_COLOR = 0xC8914A; // 背景の木床に合わせたウォームウッド色
+
+// キャラが歩き回れるオフィス床エリア（横ほぼ端まで・窓ストリップより下全体）
 const WALK_AREA = {
-  x: OFFICE.x + 24,
-  y: OFFICE.y + 160,
-  w: OFFICE.w - 48,
-  h: OFFICE.h - 180,
+  x: OFFICE.x + 6,
+  y: OFFICE.y + BG_STRIP_H + 8,
+  w: OFFICE.w - 12,
+  h: OFFICE.h - BG_STRIP_H - 18,
 };
 
 export class GameScene extends Phaser.Scene {
@@ -85,20 +90,24 @@ export class GameScene extends Phaser.Scene {
     // アクションバー背景
     this.bgLayer.add(makePanel(this, 0, HUD_H, GAME_W, ACT_H, 0x22243a));
 
-    // オフィス背景（1枚）
-    this.bgLayer.add(makePanel(this, OFFICE.x, OFFICE.y, OFFICE.w, OFFICE.h, COLORS.office));
+    // オフィス背景：上部ストリップ（窓・天井）＋ 下は広い床
     const bgKey = this.textures.exists('bg_office_back') ? 'bg_office_back'
       : this.textures.exists('bg_office') ? 'bg_office' : null;
     if (bgKey) {
+      // 背景画像は上部の窓エリアだけをストリップ表示
       const bg = this.add.image(OFFICE.x, OFFICE.y, bgKey).setOrigin(0, 0);
-      bg.setDisplaySize(OFFICE.w, OFFICE.h);
+      const srcW = this.textures.get(bgKey).getSourceImage().width;
+      bg.setCrop(0, 0, srcW, BG_STRIP_SRC_H);
+      bg.setDisplaySize(OFFICE.w, BG_STRIP_H);
       this.bgLayer.add(bg);
+      // 窓ストリップより下は広い木床
+      const floorY = OFFICE.y + BG_STRIP_H;
+      this.bgLayer.add(
+        this.add.rectangle(OFFICE.x, floorY, OFFICE.w, OFFICE.h - BG_STRIP_H, FLOOR_COLOR).setOrigin(0, 0),
+      );
     } else {
-      this.bgLayer.add(this.add.rectangle(OFFICE.x, OFFICE.y, OFFICE.w, OFFICE.h, COLORS.officeFloor).setOrigin(0, 0));
+      this.bgLayer.add(this.add.rectangle(OFFICE.x, OFFICE.y, OFFICE.w, OFFICE.h, FLOOR_COLOR).setOrigin(0, 0));
     }
-    this.bgLayer.add(this.add.text(OFFICE.x + 8, OFFICE.y + 8, '🏢 オフィス', {
-      fontFamily: FONT, fontSize: '15px', color: COLORS.sub,
-    }));
 
     // 右パネル（社員・開発）
     this.bgLayer.add(makePanel(this, EMP.x, EMP.y, EMP.w, EMP.h, COLORS.panel));
@@ -846,19 +855,39 @@ export class GameScene extends Phaser.Scene {
   // 0=おじさん主人公, 1=OL田中, 2=後輩鈴木, 3=後輩コーヒー, 4=おかあさん, 5=ゾンビ
   addWalker(e) {
     // 社長（創業者）は常にchar0（おじさん主人公）、それ以外は id から順番に割り振り
-    const charIdx = e.founder ? 0 : ((e.id - 1) % 6);
+    const charIdx = e.founder ? 0 : (e.charIdx ?? ((e.id - 1) % 6));
     const job = dominantJob(e);
 
     const startX = WALK_AREA.x + Math.random() * WALK_AREA.w;
     const startY = WALK_AREA.y + Math.random() * WALK_AREA.h;
 
     const CHAR_H = 72;
+    const walkKey1 = `char_${charIdx}_walk_1`;
+    const standKey = `char_${charIdx}_walk_2`; // 足を揃えた直立ポーズ＝立ち止まりに流用
     const idleKey = `char_${charIdx}_idle`;
+    const hasWalk = this.textures.exists(walkKey1);
+
+    // 表示サイズは「表示するテクスチャ自身の縦横比」を保ったまま高さだけCHAR_Hに固定（歪み防止）
+    const dispWFor = (key) => {
+      const src = this.textures.get(key).getSourceImage();
+      return Math.round(src.width * CHAR_H / src.height);
+    };
+
     let sprite;
-    if (this.textures.exists(idleKey)) {
+    let charDispW = 54;
+    let restKey;
+    if (hasWalk) {
+      // 歩行フレームがあるキャラ: 立ち止まりも歩行フレームを使う → 待機/歩行で比率もサイズも完全一致
+      charDispW = dispWFor(walkKey1);
+      restKey = standKey;
+      sprite = this.add.image(0, 0, standKey).setOrigin(0.5, 1);
+      sprite.setDisplaySize(charDispW, CHAR_H);
+    } else if (this.textures.exists(idleKey)) {
+      // 歩行フレーム無し: idle.png を自身の比率のまま表示（歪ませない）
+      charDispW = dispWFor(idleKey);
+      restKey = idleKey;
       sprite = this.add.image(0, 0, idleKey).setOrigin(0.5, 1);
-      const src = this.textures.get(idleKey).getSourceImage();
-      sprite.setDisplaySize(Math.round(src.width * CHAR_H / src.height), CHAR_H);
+      sprite.setDisplaySize(charDispW, CHAR_H);
     } else {
       const body = this.add.rectangle(0, 2, 16, 22, job.color).setStrokeStyle(2, 0x20223a);
       const head = this.add.circle(0, -14, 10, 0xf0c8a0).setStrokeStyle(2, 0x20223a);
@@ -872,6 +901,9 @@ export class GameScene extends Phaser.Scene {
     const cont = this.add.container(startX, startY, [sprite, tag]);
     cont.empId = e.id;
     cont.charIdx = charIdx;
+    cont.charH = CHAR_H;
+    cont.charDispW = charDispW;
+    cont.restKey = restKey; // 立ち止まり時に表示するテクスチャ
     cont.animTimer = null;
     this.walkerLayer.add(cont);
     this.walkers.set(e.id, cont);
@@ -888,16 +920,23 @@ export class GameScene extends Phaser.Scene {
     const duration = Math.max(600, (dist / 70) * 1000);
     const sprite = walker.list[0];
 
-    // char0（おじさん主人公）のみ歩行フレームアニメ
-    if (walker.charIdx === 0 && this.textures.exists('char_0_walk_1')) {
+    // setTexture後にサイズを再適用（Phaser3はsetTextureでサイズをリセットする）
+    const applyTex = (key) => {
+      if (!sprite?.setTexture) return;
+      sprite.setTexture(key);
+      sprite.setDisplaySize(walker.charDispW, walker.charH);
+    };
+
+    // 全キャラ歩行フレームアニメ
+    if (this.textures.exists(`char_${walker.charIdx}_walk_1`)) {
       if (sprite?.setFlipX) sprite.setFlipX(tx < walker.x);
-      const walkKeys = ['char_0_walk_1', 'char_0_walk_2', 'char_0_walk_3', 'char_0_walk_4'];
+      const walkKeys = [1, 2, 3, 4].map((f) => `char_${walker.charIdx}_walk_${f}`);
       let fi = 0;
       walker.animTimer = this.time.addEvent({
         delay: 130, repeat: -1,
         callback: () => {
           if (!walker.active) return;
-          if (sprite?.setTexture) sprite.setTexture(walkKeys[fi++ % walkKeys.length]);
+          applyTex(walkKeys[fi++ % walkKeys.length]);
         },
       });
     }
@@ -912,10 +951,8 @@ export class GameScene extends Phaser.Scene {
         if (walker.animTimer) {
           walker.animTimer.remove();
           walker.animTimer = null;
-          if (sprite?.setTexture) {
-            sprite.setTexture(`char_${walker.charIdx}_idle`);
-            if (sprite?.setFlipX) sprite.setFlipX(false);
-          }
+          applyTex(walker.restKey ?? `char_${walker.charIdx}_walk_2`);
+          if (sprite?.setFlipX) sprite.setFlipX(false);
         }
         this.time.delayedCall(800 + Math.random() * 1600, () => {
           if (walker.active) this.startWalking(walker);

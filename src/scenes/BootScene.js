@@ -11,12 +11,15 @@ export class BootScene extends Phaser.Scene {
     for (let i = 0; i < 6; i++) {
       this.load.image(`char_${i}_idle`, `assets/sprites/ojisan_char${i}/idle.png`);
     }
-    // char0（おじさん主人公）のみ歩行フレームあり
-    for (let f = 1; f <= 4; f++) {
-      this.load.image(`char_0_walk_${f}`, `assets/sprites/ojisan_char0/walk_${f}.png`);
+    // 全6キャラの歩行フレーム（char0-2はv3版、char3-5はv2版）
+    for (let i = 0; i < 6; i++) {
+      const suffix = i <= 2 ? '_v3' : '_v2';
+      for (let f = 1; f <= 4; f++) {
+        this.load.image(`char_${i}_walk_${f}`, `assets/sprites/ojisan_char${i}/walk_${f}${suffix}.png`);
+      }
     }
 
-    this.load.image('bg_office_back', 'assets/bg/office_back.png');
+    this.load.image('bg_office_back', 'assets/bg/office_back_v2.png');
     this.load.image('bg_office',      'assets/bg/office.png');
     const icons = ['haramaki', 'polo', 'chan', 'suit'];
     for (const id of icons) {
