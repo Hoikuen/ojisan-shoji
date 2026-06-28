@@ -24,16 +24,17 @@ const ROOM   = { x: 16,  y: CONTENT_Y + 48, w: 644, h: 440 };
 const EMP    = { x: 680, y: CONTENT_Y,       w: 280, h: 268 };
 const PROJ   = { x: 680, y: CONTENT_Y + 272, w: 280, h: 240 };
 
-// 社員の席座標（最大8席、4列×2行）。背景画像の机位置と1:1対応。
+// 社員の席座標（最大8席、4列×2行）。背景画像の机・椅子位置と1:1対応。
+// スプライトは 96×144px（origin 0.5,1）なので行間は 170px 以上必要。
 const SEATS = [
-  { x: ROOM.x +  80, y: ROOM.y + 180 },
-  { x: ROOM.x + 240, y: ROOM.y + 180 },
-  { x: ROOM.x + 400, y: ROOM.y + 180 },
-  { x: ROOM.x + 560, y: ROOM.y + 180 },
-  { x: ROOM.x +  80, y: ROOM.y + 320 },
-  { x: ROOM.x + 240, y: ROOM.y + 320 },
-  { x: ROOM.x + 400, y: ROOM.y + 320 },
-  { x: ROOM.x + 560, y: ROOM.y + 320 },
+  { x: ROOM.x +  80, y: ROOM.y + 165 },
+  { x: ROOM.x + 240, y: ROOM.y + 165 },
+  { x: ROOM.x + 400, y: ROOM.y + 165 },
+  { x: ROOM.x + 560, y: ROOM.y + 165 },
+  { x: ROOM.x +  80, y: ROOM.y + 340 },
+  { x: ROOM.x + 240, y: ROOM.y + 340 },
+  { x: ROOM.x + 400, y: ROOM.y + 340 },
+  { x: ROOM.x + 560, y: ROOM.y + 340 },
 ];
 
 export class GameScene extends Phaser.Scene {
@@ -803,7 +804,7 @@ export class GameScene extends Phaser.Scene {
     let sprite;
     const idleKey = `ojisan_${variant}_idle_1`;
     if (this.textures.exists(idleKey)) {
-      sprite = this.add.image(0, 0, idleKey).setOrigin(0.5, 1).setDisplaySize(64, 96);
+      sprite = this.add.image(0, 0, idleKey).setOrigin(0.5, 1);
     } else {
       const body = this.add.rectangle(0, 0, 24, 32, job.color).setStrokeStyle(2, 0x20223a);
       const head = this.add.circle(0, -20, 10, 0xf0c8a0).setStrokeStyle(2, 0x20223a);
